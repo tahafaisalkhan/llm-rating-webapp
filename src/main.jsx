@@ -10,7 +10,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/item/:id/:model" element={<Detail />} />
+        <Route path="/item/:id/:set" element={<Detail />} /> {/* set = "set1"|"set2" */}
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

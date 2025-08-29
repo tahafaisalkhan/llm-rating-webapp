@@ -2,68 +2,108 @@ import { useEffect, useState } from "react";
 import PanelCard from "../components/PanelCard";
 
 export default function Home() {
-  const [chatgpt, setChatgpt] = useState([]);
-  const [medgemma, setMedgemma] = useState([]);
+  const [pairs, setPairs] = useState([]);
+  const [choice, setChoice] = useState({});     // { [comparison]: 1|2 }
+  const [locked, setLocked] = useState({});     // { [comparison]: true } after submission
   const [err, setErr] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [cgRes, mgRes] = await Promise.all([
-          fetch("/data/chatgpt.json"),
-          fetch("/data/medgemma.json"),
-        ]);
-        if (!cgRes.ok) throw new Error("Missing /data/chatgpt.json (did you run npm run build:data?)");
-        if (!mgRes.ok) throw new Error("Missing /data/medgemma.json");
-        const [cg, mg] = await Promise.all([cgRes.json(), mgRes.json()]);
-        setChatgpt(cg);
-        setMedgemma(mg);
+        const res = await fetch("/data/paired.json");
+        if (!res.ok) throw new Error("Missing /data/paired.json (run npm run build:data)");
+        const json = await res.json();
+        setPairs(Array.isArray(json) ? json : []);
       } catch (e) {
         console.error(e);
-        setErr(e.message || "Failed to load JSON.");
+        setErr(e.message || "Failed to load paired data.");
       }
     })();
   }, []);
 
-  // index by id for pairing
-  const byIdCg = new Map(chatgpt.map(r => [r.id, r]));
-  const byIdMg = new Map(medgemma.map(r => [r.id, r]));
-  const ids = Array.from(new Set([...byIdCg.keys(), ...byIdMg.keys()])).sort((a,b) => (a+"").localeCompare(b+""));
+  async function submitPref(p) {
+    if (locked[p.comparison]) return;
+    const result = choice[p.comparison];
+    if (result !== 1 && result !== 2) {
+      alert("Select a preference (1 or 2) first.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          comparison: p.comparison,
+          set1Id: p.chatgpt?.id || "", // left column id
+          set2Id: p.medgemma?.id || "", // right column id
+          result
+        })
+      });
+      if (res.status === 409) {
+        alert("Preference already submitted for this comparison.");
+        setLocked((m) => ({ ...m, [p.comparison]: true }));
+        return;
+      }
+      if (!res.ok) throw new Error(await res.text());
+      setLocked((m) => ({ ...m, [p.comparison]: true }));
+      alert("Preference submitted.");
+    } catch (e) {
+      alert("Failed: " + (e.message || "Unknown error"));
+    }
+  }
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
-      <h1 className="text-2xl font-semibold">LLM Translation Rater</h1>
+      <h1 className="text-3xl font-bold text-center">LLM Rating Menu</h1>
 
       <div className="grid grid-cols-3 gap-4 font-semibold text-center sticky top-0 bg-gray-50 py-2">
-        <div>ChatGPT</div>
-        <div>MedGemma</div>
-        <div>Prefer</div>
+        <div>Set 1</div>
+        <div>Set 2</div>
+        <div>Preference</div>
       </div>
 
       {err && <div className="text-sm text-red-700">{err}</div>}
 
-      {ids.map((id) => {
-        const cg = byIdCg.get(id);
-        const mg = byIdMg.get(id);
+      {pairs.map((p) => {
+        const lockedRow = !!locked[p.comparison];
         return (
-          <div key={id} className="grid grid-cols-3 gap-4">
+          <div key={p.comparison} className="grid grid-cols-3 gap-4 items-start">
             <div>
-              {cg ? (
-                <PanelCard id={cg.id} datasetid={cg.datasetid} model="chatgpt" />
+              {p.chatgpt ? (
+                <PanelCard id={p.chatgpt.id} datasetid={p.chatgpt.datasetid} setLabel="set1" />
               ) : (
-                <Blank label="No ChatGPT item" />
+                <Blank label="No Set 1 item" />
               )}
             </div>
             <div>
-              {mg ? (
-                <PanelCard id={mg.id} datasetid={mg.datasetid} model="medgemma" />
+              {p.medgemma ? (
+                <PanelCard id={p.medgemma.id} datasetid={p.medgemma.datasetid} setLabel="set2" />
               ) : (
-                <Blank label="No MedGemma item" />
+                <Blank label="No Set 2 item" />
               )}
             </div>
             <div className="flex items-center justify-center gap-2">
-              <button className="border px-3 py-1 rounded">1</button>
-              <button className="border px-3 py-1 rounded">2</button>
+              <button
+                disabled={lockedRow}
+                className={`border px-3 py-1 rounded ${choice[p.comparison]===1 ? "bg-blue-600 text-white" : ""} ${lockedRow ? "opacity-50 cursor-not-allowed" : ""}`}
+                onClick={() => setChoice((m) => ({ ...m, [p.comparison]: 1 }))}
+              >
+                1
+              </button>
+              <button
+                disabled={lockedRow}
+                className={`border px-3 py-1 rounded ${choice[p.comparison]===2 ? "bg-blue-600 text-white" : ""} ${lockedRow ? "opacity-50 cursor-not-allowed" : ""}`}
+                onClick={() => setChoice((m) => ({ ...m, [p.comparison]: 2 }))}
+              >
+                2
+              </button>
+              <button
+                disabled={lockedRow}
+                className={`border px-3 py-1 rounded font-semibold ${lockedRow ? "opacity-50 cursor-not-allowed" : "bg-black text-white"}`}
+                onClick={() => submitPref(p)}
+              >
+                Submit
+              </button>
             </div>
           </div>
         );

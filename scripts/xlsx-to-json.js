@@ -1,4 +1,4 @@
-// scripts/xlsx-to-json.js  (CommonJS)
+// scripts/xlsx-to-json.js
 const fs = require("fs");
 const path = require("path");
 const XLSX = require("xlsx");
@@ -6,7 +6,6 @@ const XLSX = require("xlsx");
 const RAW_DIR = path.resolve("data_raw");
 const OUT_DIR = path.resolve("public/data");
 
-// Ensure output dir exists
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
 function readSheet(p) {
@@ -31,6 +30,7 @@ function normalizeCommon(row) {
     id: String(pick(row, "id", "ID", "Id") ?? ""),
     dataset: pick(row, "dataset"),
     datasetid: String(pick(row, "datasetid", "dataset_id", "DatasetID") ?? ""),
+    comparison: String(pick(row, "comparison", "Comparison", "pair", "pair_id") ?? ""),
     originalDialogue: pick(row, "Original Dialogue", "Original_Dialogue", "English Dialogue"),
     originalNote: pick(row, "Original Note", "Original_Note", "English Note"),
   };
@@ -69,14 +69,29 @@ function convert() {
   fs.writeFileSync(path.join(OUT_DIR, "medgemma.json"), JSON.stringify(medRows, null, 2));
   fs.writeFileSync(path.join(OUT_DIR, "chatgpt.json"), JSON.stringify(cgRows, null, 2));
 
-  // Optional paired file
-  const mapMed = new Map(medRows.map(r => [r.id, r]));
-  const mapCg = new Map(cgRows.map(r => [r.id, r]));
-  const ids = Array.from(new Set([...mapMed.keys(), ...mapCg.keys()]));
-  const paired = ids.map(id => ({ id, med: mapMed.get(id) || null, chatgpt: mapCg.get(id) || null }));
+  // Build pairs keyed by `comparison`
+  const byCompMed = new Map(medRows.map(r => [r.comparison || r.id, r]));
+  const byCompCg  = new Map(cgRows.map(r => [r.comparison || r.id, r]));
+  const keys = Array.from(new Set([...byCompMed.keys(), ...byCompCg.keys()]));
+
+  // numeric-aware sort, fallback to lexical
+  keys.sort((a, b) => {
+    const na = Number(a), nb = Number(b);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    return String(a).localeCompare(String(b));
+  });
+
+  const paired = keys.map(k => ({
+    comparison: String(k),
+    chatgpt: byCompCg.get(k) || null,
+    medgemma: byCompMed.get(k) || null
+  }));
+
   fs.writeFileSync(path.join(OUT_DIR, "paired.json"), JSON.stringify(paired, null, 2));
 
-  console.log(`✅ Wrote ${medRows.length} medgemma rows and ${cgRows.length} chatgpt rows to public/data/`);
+  console.log(
+    `✅ Wrote ${medRows.length} medgemma rows, ${cgRows.length} chatgpt rows, and ${paired.length} pairs to public/data/`
+  );
 }
 
 convert();
