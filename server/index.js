@@ -97,9 +97,17 @@ app.post("/api/preferences", async (req, res) => {
 app.get("/api/preferences/status", async (req, res) => {
   const { comparison } = req.query;
   if (!comparison) return res.status(400).json({ error: "comparison required" });
-  const found = await Preference.exists({ comparison: String(comparison) });
-  res.json({ exists: !!found });
+
+  const found = await Preference.findOne({ comparison: String(comparison) })
+    .select("result comparison")
+    .lean();
+
+  if (!found) return res.json({ exists: false });
+
+  // include result so the UI can highlight the chosen button on load
+  return res.json({ exists: true, result: found.result });
 });
+
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`🚀 API on http://localhost:${PORT}`));
