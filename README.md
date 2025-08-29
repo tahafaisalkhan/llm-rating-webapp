@@ -1,1 +1,0 @@
-# clinical-benchmarks-rubric
