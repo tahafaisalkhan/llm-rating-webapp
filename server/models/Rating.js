@@ -2,14 +2,15 @@ const mongoose = require("mongoose");
 
 const RatingSchema = new mongoose.Schema(
   {
-    modelId: { type: String, required: true },     // e.g., c_aci_026 or g_aci_026
+    rater: { type: String, required: true },        // USER1 / USER2
+    modelId: { type: String, required: true },      // c_aci_026 or g_aci_026
     datasetId: { type: String, default: "" },
-    modelUsed: {                                   // stored internally; UI stays blind
+    modelUsed: {
       type: String,
       enum: ["chatgpt", "medgemma", "unknown"],
       required: true,
     },
-    comparison: { type: String, default: "" },     // comparison / pair id
+    comparison: { type: String, default: "" },
     scores: {
       axis1: { type: Number, min: 0, max: 5, required: true },
       axis2: { type: Number, min: 0, max: 5, required: true },
@@ -21,8 +22,7 @@ const RatingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// "For now, if a submission is done it cannot be done again."
-// Enforce one rating per (modelId, modelUsed).
-RatingSchema.index({ modelId: 1, modelUsed: 1 }, { unique: true });
+// one submission per (user, modelUsed, modelId)
+RatingSchema.index({ rater: 1, modelUsed: 1, modelId: 1 }, { unique: true });
 
 module.exports = mongoose.model("Rating", RatingSchema);

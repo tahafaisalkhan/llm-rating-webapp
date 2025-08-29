@@ -28,11 +28,12 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 // body: { modelId, datasetId, modelUsed, comparison, scores {axis1..axis5} }
 app.post("/api/ratings", async (req, res) => {
   try {
-    const { modelId, datasetId, modelUsed, comparison, scores } = req.body || {};
-    if (!modelId || !modelUsed || !scores) {
-      return res.status(400).json({ error: "modelId, modelUsed, scores are required" });
+    const { modelId, datasetId, modelUsed, comparison, scores, rater } = req.body || {};
+    if (!rater || !modelId || !modelUsed || !scores) {
+      return res.status(400).json({ error: "rater, modelId, modelUsed, scores required" });
     }
     const payload = {
+      rater: String(rater).toUpperCase(),
       modelId: String(modelId),
       datasetId: datasetId ? String(datasetId) : "",
       modelUsed: String(modelUsed).toLowerCase(),
@@ -41,7 +42,6 @@ app.post("/api/ratings", async (req, res) => {
         axis1: +scores.axis1, axis2: +scores.axis2, axis3: +scores.axis3, axis4: +scores.axis4, axis5: +scores.axis5
       }
     };
-    // validate score ranges 0-5
     for (const k of ["axis1","axis2","axis3","axis4","axis5"]) {
       const v = payload.scores[k];
       if (!Number.isFinite(v) || v < 0 || v > 5) {
@@ -51,19 +51,22 @@ app.post("/api/ratings", async (req, res) => {
     const doc = await Rating.create(payload);
     return res.status(201).json({ ok: true, id: doc._id });
   } catch (e) {
-    if (e && e.code === 11000) {
-      return res.status(409).json({ error: "Rating already exists for this item" });
-    }
+    if (e?.code === 11000) return res.status(409).json({ error: "Rating already exists for this user & item" });
     console.error(e);
     return res.status(500).json({ error: "Server error" });
   }
 });
 
-// GET /api/ratings/status?modelUsed=chatgpt&modelId=c_aci_026
+
+// GET /api/ratings/status?modelUsed=chatgpt&modelId=c_aci_026&rater=USER1
 app.get("/api/ratings/status", async (req, res) => {
-  const { modelUsed, modelId } = req.query;
-  if (!modelUsed || !modelId) return res.status(400).json({ error: "modelUsed and modelId required" });
-  const found = await Rating.exists({ modelUsed: String(modelUsed).toLowerCase(), modelId: String(modelId) });
+  const { modelUsed, modelId, rater } = req.query;
+  if (!modelUsed || !modelId || !rater) return res.status(400).json({ error: "modelUsed, modelId, rater required" });
+  const found = await Rating.exists({
+    modelUsed: String(modelUsed).toLowerCase(),
+    modelId: String(modelId),
+    rater: String(rater).toUpperCase(),
+  });
   res.json({ exists: !!found });
 });
 
@@ -73,40 +76,39 @@ app.get("/api/ratings/status", async (req, res) => {
 // body: { comparison, set1Id, set2Id, result(1|2) }
 app.post("/api/preferences", async (req, res) => {
   try {
-    const { comparison, set1Id, set2Id, result } = req.body || {};
-    if (!comparison || (result !== 1 && result !== 2)) {
-      return res.status(400).json({ error: "comparison and result(1|2) are required" });
+    const { comparison, set1Id, set2Id, result, rater } = req.body || {};
+    if (!comparison || (result !== 1 && result !== 2) || !rater) {
+      return res.status(400).json({ error: "comparison, result(1|2), rater required" });
     }
     const doc = await Preference.create({
       comparison: String(comparison),
       set1Id: set1Id ? String(set1Id) : "",
       set2Id: set2Id ? String(set2Id) : "",
-      result
+      result,
+      rater: String(rater).toUpperCase(),
     });
     return res.status(201).json({ ok: true, id: doc._id });
   } catch (e) {
-    if (e && e.code === 11000) {
-      return res.status(409).json({ error: "Preference already submitted for this comparison" });
-    }
+    if (e?.code === 11000) return res.status(409).json({ error: "Preference already submitted by this user for this comparison" });
     console.error(e);
     return res.status(500).json({ error: "Server error" });
   }
 });
 
+
 // GET /api/preferences/status?comparison=123
+// GET /api/preferences/status?comparison=1&rater=USER1
 app.get("/api/preferences/status", async (req, res) => {
-  const { comparison } = req.query;
-  if (!comparison) return res.status(400).json({ error: "comparison required" });
-
-  const found = await Preference.findOne({ comparison: String(comparison) })
-    .select("result comparison")
-    .lean();
-
+  const { comparison, rater } = req.query;
+  if (!comparison || !rater) return res.status(400).json({ error: "comparison, rater required" });
+  const found = await Preference.findOne({
+    comparison: String(comparison),
+    rater: String(rater).toUpperCase(),
+  }).select("result").lean();
   if (!found) return res.json({ exists: false });
-
-  // include result so the UI can highlight the chosen button on load
   return res.json({ exists: true, result: found.result });
 });
+
 
 
 const PORT = process.env.PORT || 4000;

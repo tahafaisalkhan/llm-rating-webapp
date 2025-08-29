@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RubricForm from "../components/RubricForm";
+import { getRater } from "../utils/auth"; // ← added
 
 export default function Detail() {
   const { id, set } = useParams(); // set = "set1" | "set2" (for display only)
@@ -10,6 +11,8 @@ export default function Detail() {
   const [mg, setMg] = useState(null);
   const [err, setErr] = useState("");
   const [already, setAlready] = useState(false);
+
+  const rater = getRater() || ""; // ← added (USER1 / USER2)
 
   // which dataset contains this id?
   useEffect(() => {
@@ -28,7 +31,11 @@ export default function Detail() {
 
         // check if rating already exists for the actual model
         const modelUsed = cgRow ? "chatgpt" : mgRow ? "medgemma" : "unknown";
-        const res = await fetch(`/api/ratings/status?modelUsed=${encodeURIComponent(modelUsed)}&modelId=${encodeURIComponent(id)}`);
+        const res = await fetch(
+          `/api/ratings/status?modelUsed=${encodeURIComponent(modelUsed)}&modelId=${encodeURIComponent(
+            id
+          )}&rater=${encodeURIComponent(rater)}` // ← added rater
+        );
         const j = res.ok ? await res.json() : { exists: false };
         setAlready(!!j.exists);
       } catch (e) {
@@ -36,7 +43,7 @@ export default function Detail() {
         setErr(e.message || "Failed to load.");
       }
     })();
-  }, [id]);
+  }, [id, rater]); // ← include rater so status refreshes if user changes
 
   const modelUsed = cg ? "chatgpt" : mg ? "medgemma" : "unknown";
   const comparison = cg?.comparison || mg?.comparison || "";
@@ -115,6 +122,7 @@ export default function Detail() {
           datasetId={datasetId}
           comparison={comparison}
           modelUsed={modelUsed}   // stored internally; UI stays blind
+          rater={rater}           // ← added
         />
       </div>
     </div>
