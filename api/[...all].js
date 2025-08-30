@@ -1,4 +1,4 @@
-// This catches /api/* and runs your Express app inside one function
+// api/[...all].js
 const serverless = require("serverless-http");
 const createServer = require("../server/index.express");
 
