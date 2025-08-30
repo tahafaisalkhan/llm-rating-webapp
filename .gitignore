@@ -6,7 +6,6 @@ dist/
 build/
 
 # Local data
-public/data/*.json
 
 # Logs
 npm-debug.log*
