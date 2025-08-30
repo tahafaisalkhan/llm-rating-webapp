@@ -1,13 +1,9 @@
 {
-  "version": 2,
-  "framework": "vite",
-  "buildCommand": "npm run build && npm run build:data",
-  "outputDirectory": "dist",
-
   "functions": {
-    "api/**/*.js": { "runtime": "nodejs20" }
+    "api/index.js": {
+      "runtime": "nodejs20"
+    }
   },
-
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/(.*)", "destination": "/" }
