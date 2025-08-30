@@ -1,3 +1,4 @@
+// api/[...all].js
 const serverless = require("serverless-http");
 const createServer = require("../server/index.express");
 
