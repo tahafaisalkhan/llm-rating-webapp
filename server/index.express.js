@@ -4,8 +4,8 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 
 // require your routers/models as you already do
-const ratingsRouter = require("./routes/ratings");
-const prefsRouter = require("./routes/preferences");
+// const ratingsRouter = require("./routes/ratings");
+// const prefsRouter = require("./routes/preferences");
 
 module.exports = function createServer() {
   const app = express();
@@ -28,8 +28,8 @@ module.exports = function createServer() {
   }
 
   // mount your routes exactly as before:
-  app.use("/api/ratings", ratingsRouter);
-  app.use("/api/preferences", prefsRouter);
+  // app.use("/api/ratings", ratingsRouter);
+  // app.use("/api/preferences", prefsRouter);
 
   // If your original file had health:
   app.get("/api/health", (_, res) => res.json({ ok: true }));
