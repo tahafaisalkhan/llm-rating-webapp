@@ -1,9 +1,9 @@
+// server/routes/preferences.js
 const express = require("express");
 const connectMongo = require("../db");
 const Preference = require("../models/Preference");
 const router = express.Router();
 
-// POST /api/preferences
 router.post("/", async (req, res) => {
   try {
     await connectMongo();
@@ -11,17 +11,9 @@ router.post("/", async (req, res) => {
     if (!comparison || !chatgptId || !medgemmaId || !result || !rater) {
       return res.status(400).send("Missing fields");
     }
-
     const exists = await Preference.findOne({ comparison, rater });
     if (exists) return res.status(409).send("Already submitted");
-
-    const doc = await Preference.create({
-      comparison,
-      chatgptId,
-      medgemmaId,
-      result,
-      rater
-    });
+    const doc = await Preference.create({ comparison, chatgptId, medgemmaId, result, rater });
     res.json({ ok: true, id: doc._id });
   } catch (e) {
     console.error("preferences POST error:", e);
@@ -29,7 +21,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET /api/preferences/status?comparison=&rater=
 router.get("/status", async (req, res) => {
   try {
     await connectMongo();
