@@ -26,7 +26,3 @@ module.exports = function createServer() {
 
   return app;
 };
-
-app.post("/api/_echo", (req, res) => {
-  res.json({ ok: true, got: req.body || null, ts: Date.now() });
-});
