@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build && npm run build:data",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/[...all].js": { "runtime": "nodejs20" }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/[...all].js" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
