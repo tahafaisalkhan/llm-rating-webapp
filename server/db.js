@@ -1,13 +1,9 @@
 // server/db.js
 const mongoose = require("mongoose");
 
-/**
- * Keep one connection & cached models per Lambda container.
- * Avoids OverwriteModelError and reconnect storms.
- */
-let cached = global._mongoose_cache;
+let cached = global.__mongoCached;
 if (!cached) {
-  cached = global._mongoose_cache = { conn: null, promise: null };
+  cached = global.__mongoCached = { conn: null, promise: null };
 }
 
 async function connectMongo() {
@@ -15,16 +11,22 @@ async function connectMongo() {
 
   if (!cached.promise) {
     const uri = process.env.MONGODB_URI;
-    if (!uri) throw new Error("MONGODB_URI is not set");
+    if (!uri) throw new Error("MONGODB_URI not set");
+
+    // Keep this lightweight. No connect at import time.
+    mongoose.set("strictQuery", true);
 
     cached.promise = mongoose
       .connect(uri, {
-        serverSelectionTimeoutMS: 8000,
-        maxPoolSize: 5
+        maxPoolSize: 5,
+        serverSelectionTimeoutMS: 8000, // don't hang forever
       })
-      .then((m) => m);
+      .then((m) => m.connection)
+      .catch((err) => {
+        cached.promise = null;
+        throw err;
+      });
   }
-
   cached.conn = await cached.promise;
   return cached.conn;
 }

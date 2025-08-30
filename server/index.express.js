@@ -2,8 +2,8 @@
 const express = require("express");
 const cors = require("cors");
 
-// IMPORTANT: these routers call connectMongo() internally.
-// This file must NOT call mongoose.connect() or import a module that does so at top-level.
+// ⛔️ Do NOT import anything that connects to Mongo at top-level.
+// Routers below should connect inside each handler via connectMongo().
 const ratingsRouter = require("./routes/ratings");
 const preferencesRouter = require("./routes/preferences");
 
@@ -13,14 +13,14 @@ module.exports = function createServer() {
   app.use(express.json({ limit: "1mb" }));
   app.use(
     cors({
-      origin: [/localhost:\d+$/, /\.vercel\.app$/],
+      origin: [/localhost:\d+$/i, /\.vercel\.app$/i],
     })
   );
 
-  // Health must NOT depend on DB
-  app.get("/api/health", (_req, res) => res.json({ ok: true }));
+  // Health via the catch-all app (no DB)
+  app.get("/api/_health", (_req, res) => res.json({ ok: true, via: "catch-all" }));
 
-  // API routes (each route connects when needed)
+  // Real routes (each connects to DB inside the handler)
   app.use("/api/ratings", ratingsRouter);
   app.use("/api/preferences", preferencesRouter);
 
