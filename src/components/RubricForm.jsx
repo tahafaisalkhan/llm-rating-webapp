@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 /**
  * Props:
@@ -17,9 +17,8 @@ export default function RubricForm({
   modelUsed,
   rater,
 }) {
-  // 7 axes (default 3) + per-axis comment + optional extra comment
+  // 7 axes, default 3
   const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3]);
-  const [comments, setComments] = useState(["", "", "", "", "", "", ""]);
   const [extra, setExtra] = useState("");
 
   const [saving, setSaving] = useState(false);
@@ -35,49 +34,43 @@ export default function RubricForm({
       return copy;
     });
 
-  const setComment = (i, v) =>
-    setComments((arr) => {
-      const copy = arr.slice();
-      copy[i] = v;
-      return copy;
-    });
-
+  // Short labels to keep the panel compact.
+  // Full guidance available via title tooltip.
   const AXES = useMemo(
     () => [
       {
         label: "Medical Accuracy & Completeness",
-        hint:
-          "All clinically relevant facts present, correct, not hallucinated. Subitems: symptom fidelity, history preserved, findings/diagnosis correctness, treatment fidelity.",
+        title:
+          "All clinically relevant facts present, correct, not hallucinated (symptoms/history/findings/treatment).",
       },
       {
         label: "Clinical Safety & Handover Utility",
-        hint:
-          "Safe to hand over without harm. Subitems: red-flags preserved; medication names/doses/units exact; labs/vitals intact; no dangerous omissions.",
+        title:
+          "Safe to hand over (red-flags preserved; exact meds/labs/vitals; no dangerous omissions).",
       },
       {
-        label: "Guideline Alignment & Clinical Reasoning",
-        hint:
-          "Diagnosis/management align with standard practice. Subitems: diagnosis appropriateness; management aligns with guidelines; reasoning consistent.",
+        label: "Guideline Alignment & Reasoning",
+        title:
+          "Diagnosis/management align with guidelines; reasoning consistent with medical logic.",
       },
       {
         label: "Structure, Flow & Communication",
-        hint:
-          "Clear, coherent, faithful to consultation. Subitems: proper sectioning (S/O/A/P); chronology preserved; clear turns/transitions; clarity of explanations; key patient statements; respectful tone.",
+        title:
+          "Clear sectioning (S/O/A/P), chronology, speaker turns, explanations, key patient statements, respectful tone.",
       },
       {
-        label: "Communication, Rapport & Patient Engagement",
-        hint:
-          "Human interaction preserved. Subitems: clarity of explanations, respectful tone, empathy, patient participation, concerns addressed, education included.",
+        label: "Communication & Patient Engagement",
+        title:
+          "Clarity of explanations, respectful tone, empathy, participation, concerns addressed, education included.",
       },
       {
         label: "Alignment Task",
-        hint:
-          "Each note sentence traceable to dialogue. If not, it’s unsupported (hallucination/added knowledge).",
+        title:
+          "Each note sentence traceable to dialogue; unsupported = hallucination/added knowledge.",
       },
       {
         label: "Language & Terminology",
-        hint:
-          "Idiomatic Urdu, consistent medical terms, glossary adherence.",
+        title: "Idiomatic Urdu; consistent medical terms; glossary adherence.",
       },
     ],
     []
@@ -104,16 +97,8 @@ export default function RubricForm({
           axis5: scores[4],
           axis6: scores[5],
           axis7: scores[6],
-          comments: {
-            axis1: comments[0] || "",
-            axis2: comments[1] || "",
-            axis3: comments[2] || "",
-            axis4: comments[3] || "",
-            axis5: comments[4] || "",
-            axis6: comments[5] || "",
-            axis7: comments[6] || "",
-            extra: extra || "",
-          },
+          // only extra note; no per-axis comments
+          comments: { extra: extra || "" },
         },
       };
 
@@ -126,7 +111,6 @@ export default function RubricForm({
       if (res.status === 409) {
         setLocked(true);
         setSaving(false);
-        setErr("");
         alert("You already submitted a rating for this item.");
         return;
       }
@@ -147,7 +131,7 @@ export default function RubricForm({
   }
 
   const Likert = ({ value, onChange, disabled }) => (
-    <div className="flex items-center gap-2 text-[15px] select-none">
+    <div className="flex items-center gap-2 text-[13px] select-none">
       {[0, 1, 2, 3, 4, 5].map((n) => (
         <label key={n} className="inline-flex items-center gap-1">
           <input
@@ -156,7 +140,7 @@ export default function RubricForm({
             disabled={disabled}
             checked={value === n}
             onChange={() => onChange(n)}
-            className="h-4 w-4"
+            className="h-3.5 w-3.5"
           />
           <span>{n}</span>
         </label>
@@ -165,46 +149,35 @@ export default function RubricForm({
   );
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="space-y-3">
       <div className="font-semibold">Rubric (0–5)</div>
 
-      {/* 7 axes */}
-      {AXES.map((ax, i) => (
-        <div key={ax.label} className="flex items-start justify-between gap-3">
-          <div className="text-sm">
-            <div className="font-medium">{ax.label}</div>
-            <div className="text-xs text-gray-500">{ax.hint}</div>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <Likert
-              value={scores[i]}
-              onChange={(v) => setAxis(i, v)}
-              disabled={locked}
-            />
-            {/* compact comment input to keep panel height similar */}
-            <input
-              type="text"
-              placeholder="1–2 lines on major deductions (optional)"
-              className="border rounded px-2 py-1 text-xs w-72"
-              disabled={locked}
-              value={comments[i]}
-              onChange={(e) => setComment(i, e.target.value)}
-            />
-          </div>
+      {/* Make rubric compact & scrollable */}
+      <div className="max-h-56 overflow-y-auto pr-1">
+        <div className="space-y-2">
+          {AXES.map((ax, i) => (
+            <div
+              key={ax.label}
+              className="flex items-center justify-between gap-3"
+              title={ax.title}
+            >
+              <div className="text-sm">{ax.label}</div>
+              <Likert
+                value={scores[i]}
+                onChange={(v) => setAxis(i, v)}
+                disabled={locked}
+              />
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
 
-      {/* Optional extra comment box */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-sm">
-          <div className="font-medium">Optional Open Axis — Extra Comment</div>
-          <div className="text-xs text-gray-500">
-            Explicit notes on hallucination/mistranslation or anything not covered above.
-          </div>
-        </div>
+      {/* Optional single extra note */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm">Optional Extra Note</div>
         <input
           type="text"
-          placeholder="Optional extra note"
+          placeholder="(optional) brief note"
           className="border rounded px-2 py-1 text-xs w-72"
           disabled={locked}
           value={extra}
