@@ -34,8 +34,7 @@ export default function RubricForm({
       return copy;
     });
 
-  // Short labels to keep the panel compact.
-  // Full guidance available via title tooltip.
+  // EXACT order requested:
   const AXES = useMemo(
     () => [
       {
@@ -49,9 +48,13 @@ export default function RubricForm({
           "Safe to hand over (red-flags preserved; exact meds/labs/vitals; no dangerous omissions).",
       },
       {
-        label: "Guideline Alignment & Reasoning",
+        label: "Guideline Alignment & Clinical Reasoning",
         title:
           "Diagnosis/management align with guidelines; reasoning consistent with medical logic.",
+      },
+      {
+        label: "Language & Terminology Accuracy",
+        title: "Idiomatic Urdu; consistent medical terms; glossary adherence.",
       },
       {
         label: "Structure, Flow & Communication",
@@ -59,18 +62,14 @@ export default function RubricForm({
           "Clear sectioning (S/O/A/P), chronology, speaker turns, explanations, key patient statements, respectful tone.",
       },
       {
-        label: "Communication & Patient Engagement",
+        label: "Communication, Rapport & Patient Engagement",
         title:
           "Clarity of explanations, respectful tone, empathy, participation, concerns addressed, education included.",
       },
       {
-        label: "Alignment Task",
+        label: "Alignment to Source (“traceability”)",
         title:
           "Each note sentence traceable to dialogue; unsupported = hallucination/added knowledge.",
-      },
-      {
-        label: "Language & Terminology",
-        title: "Idiomatic Urdu; consistent medical terms; glossary adherence.",
       },
     ],
     []
@@ -97,8 +96,7 @@ export default function RubricForm({
           axis5: scores[4],
           axis6: scores[5],
           axis7: scores[6],
-          // only extra note; no per-axis comments
-          comments: { extra: extra || "" },
+          comments: { extra: extra || "" }, // only single extra note
         },
       };
 
@@ -152,7 +150,7 @@ export default function RubricForm({
     <form onSubmit={submit} className="space-y-3">
       <div className="font-semibold">Rubric (0–5)</div>
 
-      {/* Make rubric compact & scrollable */}
+      {/* Keep compact/scrollable sizing as before */}
       <div className="max-h-56 overflow-y-auto pr-1">
         <div className="space-y-2">
           {AXES.map((ax, i) => (
@@ -172,9 +170,9 @@ export default function RubricForm({
         </div>
       </div>
 
-      {/* Optional single extra note */}
+      {/* Only one optional extra note */}
       <div className="flex items-center justify-between gap-3">
-        <div className="text-sm">Optional Extra Note</div>
+        <div className="text-sm">Extra Comments</div>
         <input
           type="text"
           placeholder="(optional) brief note"
