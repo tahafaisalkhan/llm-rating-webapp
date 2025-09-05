@@ -1,38 +1,63 @@
+// src/pages/Home.jsx
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import PanelCard from "../components/PanelCard";
 import { getRater, clearRater } from "../utils/auth";
 
 export default function Home() {
+  const navigate = useNavigate();
   const rater = getRater(); // USERX from localStorage
 
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  // preference state
+  // preference state (per user)
   const [choice, setChoice] = useState({}); // { [comparison]: 1|2 }
   const [locked, setLocked] = useState({}); // { [comparison]: true }
 
-  // rating status for cards
+  // rating status for cards (per user)
   const [ratedMap, setRatedMap] = useState({}); // { "chatgpt:<id>": true, "medgemma:<id>": true }
 
+  // redirect to login if no user
   useEffect(() => {
-    (async () => {
+    if (!rater) navigate("/login");
+  }, [rater, navigate]);
+
+  // Load pairs & statuses whenever rater changes
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
       try {
-        const res = await fetch("/data/paired.json");
+        // clear old user’s UI state first
+        setChoice({});
+        setLocked({});
+        setRatedMap({});
+        setErr("");
+
+        const res = await fetch("/data/paired.json", { cache: "no-store" });
         if (!res.ok) throw new Error("Missing /data/paired.json");
         const rows = await res.json();
         const arr = Array.isArray(rows) ? rows : [];
+        if (cancelled) return;
         setPairs(arr);
-        await checkStatuses(arr);
-      } catch (e) {
-        console.error(e);
-        setErr(e.message || "Failed to load paired data.");
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  async function checkStatuses(rows) {
+        await checkStatuses(arr, rater);
+      } catch (e) {
+        if (!cancelled) {
+          console.error(e);
+          setErr(e.message || "Failed to load paired data.");
+        }
+      }
+    }
+
+    if (rater) load();
+    return () => {
+      cancelled = true;
+    };
+  }, [rater]);
+
+  async function checkStatuses(rows, who) {
     const ratedEntries = {};
     const lockedEntries = {};
     const choiceEntries = {};
@@ -41,11 +66,7 @@ export default function Home() {
     for (const p of rows) {
       // preference status per rater
       fetches.push(
-        fetch(
-          `/api/preferences/status?comparison=${encodeURIComponent(
-            p.comparison
-          )}&rater=${encodeURIComponent(rater)}`
-        )
+        fetch(`/api/preferences/status?comparison=${encodeURIComponent(p.comparison)}&rater=${encodeURIComponent(who)}`)
           .then((r) => (r.ok ? r.json() : { exists: false }))
           .then((j) => {
             if (j?.exists) {
@@ -59,11 +80,7 @@ export default function Home() {
       // rating status for each panel per rater
       if (p.chatgpt?.id) {
         fetches.push(
-          fetch(
-            `/api/ratings/status?modelUsed=chatgpt&modelId=${encodeURIComponent(
-              p.chatgpt.id
-            )}&rater=${encodeURIComponent(rater)}`
-          )
+          fetch(`/api/ratings/status?modelUsed=chatgpt&modelId=${encodeURIComponent(p.chatgpt.id)}&rater=${encodeURIComponent(who)}`)
             .then((r) => (r.ok ? r.json() : { exists: false }))
             .then((j) => {
               if (j?.exists) ratedEntries[`chatgpt:${p.chatgpt.id}`] = true;
@@ -73,11 +90,7 @@ export default function Home() {
       }
       if (p.medgemma?.id) {
         fetches.push(
-          fetch(
-            `/api/ratings/status?modelUsed=medgemma&modelId=${encodeURIComponent(
-              p.medgemma.id
-            )}&rater=${encodeURIComponent(rater)}`
-          )
+          fetch(`/api/ratings/status?modelUsed=medgemma&modelId=${encodeURIComponent(p.medgemma.id)}&rater=${encodeURIComponent(who)}`)
             .then((r) => (r.ok ? r.json() : { exists: false }))
             .then((j) => {
               if (j?.exists) ratedEntries[`medgemma:${p.medgemma.id}`] = true;
@@ -89,8 +102,8 @@ export default function Home() {
 
     await Promise.all(fetches);
     setRatedMap(ratedEntries);
-    setLocked((m) => ({ ...m, ...lockedEntries }));
-    setChoice((m) => ({ ...m, ...choiceEntries }));
+    setLocked({ ...lockedEntries }); // replace to avoid stale
+    setChoice({ ...choiceEntries });
   }
 
   async function submitPref(p) {
@@ -128,14 +141,14 @@ export default function Home() {
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
-      {/* Top bar: rubric left, centered title, user & logout right */}
+      {/* Top bar */}
       <div className="flex items-center justify-between mb-2">
-        <a
-          href="/rubric"
+        <Link
+          to="/rubric"
           className="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Scoring Rubric
-        </a>
+        </Link>
 
         <h1 className="text-3xl font-bold text-center flex-1 text-center">
           LLM Rating Menu
@@ -149,7 +162,7 @@ export default function Home() {
             className="text-sm underline text-gray-600 hover:text-black"
             onClick={() => {
               clearRater();
-              window.location.href = "/login";
+              navigate("/login");
             }}
           >
             Logout
@@ -170,24 +183,15 @@ export default function Home() {
         const lockedRow = !!locked[p.comparison];
         const selected = choice[p.comparison];
 
-        const set1Rated = p.chatgpt?.id
-          ? !!ratedMap[`chatgpt:${p.chatgpt.id}`]
-          : false;
-        const set2Rated = p.medgemma?.id
-          ? !!ratedMap[`medgemma:${p.medgemma.id}`]
-          : false;
+        const set1Rated = p.chatgpt?.id ? !!ratedMap[`chatgpt:${p.chatgpt.id}`] : false;
+        const set2Rated = p.medgemma?.id ? !!ratedMap[`medgemma:${p.medgemma.id}`] : false;
 
         return (
           <div key={p.comparison} className="grid grid-cols-3 gap-4 items-start">
             {/* Set 1 card */}
             <div>
               {p.chatgpt ? (
-                <PanelCard
-                  id={p.chatgpt.id}
-                  datasetid={p.chatgpt.datasetid}
-                  setLabel="set1"
-                  rated={set1Rated}
-                />
+                <PanelCard id={p.chatgpt.id} datasetid={p.chatgpt.datasetid} setLabel="set1" rated={set1Rated} />
               ) : (
                 <Blank label="No Set 1 item" />
               )}
@@ -196,12 +200,7 @@ export default function Home() {
             {/* Set 2 card */}
             <div>
               {p.medgemma ? (
-                <PanelCard
-                  id={p.medgemma.id}
-                  datasetid={p.medgemma.datasetid}
-                  setLabel="set2"
-                  rated={set2Rated}
-                />
+                <PanelCard id={p.medgemma.id} datasetid={p.medgemma.datasetid} setLabel="set2" rated={set2Rated} />
               ) : (
                 <Blank label="No Set 2 item" />
               )}
@@ -212,38 +211,24 @@ export default function Home() {
               <button
                 disabled={lockedRow}
                 className={`border px-3 py-1 rounded ${
-                  selected === 1
-                    ? lockedRow
-                      ? "bg-green-600 text-white"
-                      : "bg-blue-600 text-white"
-                    : ""
+                  selected === 1 ? (lockedRow ? "bg-green-600 text-white" : "bg-blue-600 text-white") : ""
                 } ${lockedRow ? "opacity-80 cursor-not-allowed" : ""}`}
-                onClick={() =>
-                  setChoice((m) => ({ ...m, [p.comparison]: 1 }))
-                }
+                onClick={() => setChoice((m) => ({ ...m, [p.comparison]: 1 }))}
               >
                 1
               </button>
               <button
                 disabled={lockedRow}
                 className={`border px-3 py-1 rounded ${
-                  selected === 2
-                    ? lockedRow
-                      ? "bg-green-600 text-white"
-                      : "bg-blue-600 text-white"
-                    : ""
+                  selected === 2 ? (lockedRow ? "bg-green-600 text-white" : "bg-blue-600 text-white") : ""
                 } ${lockedRow ? "opacity-80 cursor-not-allowed" : ""}`}
-                onClick={() =>
-                  setChoice((m) => ({ ...m, [p.comparison]: 2 }))
-                }
+                onClick={() => setChoice((m) => ({ ...m, [p.comparison]: 2 }))}
               >
                 2
               </button>
 
               {lockedRow ? (
-                <span className="text-green-700 font-semibold">
-                  ✓ Submitted
-                </span>
+                <span className="text-green-700 font-semibold">✓ Submitted</span>
               ) : (
                 <button
                   className="border px-3 py-1 rounded font-semibold bg-black text-white"
@@ -262,8 +247,6 @@ export default function Home() {
 
 function Blank({ label }) {
   return (
-    <div className="border rounded p-4 bg-white text-sm text-gray-500">
-      {label}
-    </div>
+    <div className="border rounded p-4 bg-white text-sm text-gray-500">{label}</div>
   );
 }

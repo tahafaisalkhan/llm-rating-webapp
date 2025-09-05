@@ -1,10 +1,11 @@
+// src/pages/Detail.jsx
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RubricForm from "../components/RubricForm";
-import { getRater } from "../utils/auth"; // ← added
+import { getRater } from "../utils/auth";
 
 export default function Detail() {
-  const { id, set } = useParams(); // set = "set1" | "set2" (for display only)
+  const { id, set } = useParams(); // "set1" | "set2"
   const navigate = useNavigate();
 
   const [cg, setCg] = useState(null);
@@ -12,9 +13,8 @@ export default function Detail() {
   const [err, setErr] = useState("");
   const [already, setAlready] = useState(false);
 
-  const rater = getRater() || ""; // ← added (USER1 / USER2)
+  const rater = getRater() || "";
 
-  // which dataset contains this id?
   useEffect(() => {
     (async () => {
       try {
@@ -29,12 +29,9 @@ export default function Detail() {
         setCg(cgRow);
         setMg(mgRow);
 
-        // check if rating already exists for the actual model
         const modelUsed = cgRow ? "chatgpt" : mgRow ? "medgemma" : "unknown";
         const res = await fetch(
-          `/api/ratings/status?modelUsed=${encodeURIComponent(modelUsed)}&modelId=${encodeURIComponent(
-            id
-          )}&rater=${encodeURIComponent(rater)}` // ← added rater
+          `/api/ratings/status?modelUsed=${encodeURIComponent(modelUsed)}&modelId=${encodeURIComponent(id)}&rater=${encodeURIComponent(rater)}`
         );
         const j = res.ok ? await res.json() : { exists: false };
         setAlready(!!j.exists);
@@ -43,7 +40,7 @@ export default function Detail() {
         setErr(e.message || "Failed to load.");
       }
     })();
-  }, [id, rater]); // ← include rater so status refreshes if user changes
+  }, [id, rater]);
 
   const modelUsed = cg ? "chatgpt" : mg ? "medgemma" : "unknown";
   const comparison = cg?.comparison || mg?.comparison || "";
@@ -121,8 +118,8 @@ export default function Detail() {
           itemId={id}
           datasetId={datasetId}
           comparison={comparison}
-          modelUsed={modelUsed}   // stored internally; UI stays blind
-          rater={rater}           // ← added
+          modelUsed={modelUsed}
+          rater={rater}
         />
       </div>
     </div>
