@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
  *  - datasetId: string
  *  - comparison: string
  *  - modelUsed: "chatgpt" | "medgemma"
- *  - rater: string (USERX)
+ *  - rater: string (USERX)   // ← required
  */
 export default function RubricForm({
   disabledInitial = false,
@@ -22,9 +22,7 @@ export default function RubricForm({
   const [locked, setLocked] = useState(!!disabledInitial);
   const [err, setErr] = useState("");
 
-  useEffect(() => {
-    setLocked(!!disabledInitial);
-  }, [disabledInitial]);
+  useEffect(() => setLocked(!!disabledInitial), [disabledInitial]);
 
   const setAxis = (i, v) =>
     setScores((arr) => {
@@ -41,11 +39,11 @@ export default function RubricForm({
 
     try {
       const body = {
+        rater,                              // ← include rater
         modelId: itemId,
         datasetId,
-        comparison,
         modelUsed,
-        rater,
+        comparison,
         scores: {
           axis1: scores[0],
           axis2: scores[1],
@@ -64,7 +62,6 @@ export default function RubricForm({
       if (res.status === 409) {
         setLocked(true);
         setSaving(false);
-        setErr("");
         alert("You already submitted a rating for this item.");
         return;
       }
@@ -84,6 +81,25 @@ export default function RubricForm({
     }
   }
 
+  // Likert controls (same visual style you had)
+  const Likert = ({ value, onChange, disabled }) => (
+    <div className="flex items-center gap-2 text-[15px] select-none">
+      {[0, 1, 2, 3, 4, 5].map((n) => (
+        <label key={n} className="inline-flex items-center gap-1">
+          <input
+            type="radio"
+            name={"likert-" + Math.random().toString(36).slice(2)}
+            disabled={disabled}
+            checked={value === n}
+            onChange={() => onChange(n)}
+            className="h-4 w-4"
+          />
+          <span>{n}</span>
+        </label>
+      ))}
+    </div>
+  );
+
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="font-semibold">Rubric (0–5)</div>
@@ -91,31 +107,51 @@ export default function RubricForm({
       <Row
         label="Medical accuracy & completeness"
         control={
-          <Likert value={scores[0]} onChange={(v) => setAxis(0, v)} disabled={locked} />
+          <Likert
+            value={scores[0]}
+            onChange={(v) => setAxis(0, v)}
+            disabled={locked}
+          />
         }
       />
       <Row
         label="Communication & rapport"
         control={
-          <Likert value={scores[1]} onChange={(v) => setAxis(1, v)} disabled={locked} />
+          <Likert
+            value={scores[1]}
+            onChange={(v) => setAxis(1, v)}
+            disabled={locked}
+          />
         }
       />
       <Row
         label="Structure & flow"
         control={
-          <Likert value={scores[2]} onChange={(v) => setAxis(2, v)} disabled={locked} />
+          <Likert
+            value={scores[2]}
+            onChange={(v) => setAxis(2, v)}
+            disabled={locked}
+          />
         }
       />
       <Row
         label="Language & terminology"
         control={
-          <Likert value={scores[3]} onChange={(v) => setAxis(3, v)} disabled={locked} />
+          <Likert
+            value={scores[3]}
+            onChange={(v) => setAxis(3, v)}
+            disabled={locked}
+          />
         }
       />
       <Row
         label="Patient-safety & handover utility"
         control={
-          <Likert value={scores[4]} onChange={(v) => setAxis(4, v)} disabled={locked} />
+          <Likert
+            value={scores[4]}
+            onChange={(v) => setAxis(4, v)}
+            disabled={locked}
+          />
         }
       />
 
@@ -133,30 +169,6 @@ export default function RubricForm({
         </button>
       )}
     </form>
-  );
-}
-
-/** Likert scale (0–5) with slightly bigger font + buttons */
-function Likert({ value, onChange, disabled }) {
-  return (
-    <div className="flex items-center gap-2">
-      {[0, 1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(n)}
-          className={`w-8 h-8 rounded-full border flex items-center justify-center text-sm font-medium
-            ${value === n ? "bg-blue-600 text-white border-blue-600" : "border-gray-400 text-gray-700"}
-            ${disabled ? "opacity-60 cursor-not-allowed" : "hover:border-blue-600"}
-          `}
-          aria-label={`score ${n}`}
-          title={`${n}`}
-        >
-          {n}
-        </button>
-      ))}
-    </div>
   );
 }
 
