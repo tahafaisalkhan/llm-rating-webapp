@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 /**
  * Props:
@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
  *  - datasetId: string
  *  - comparison: string
  *  - modelUsed: "chatgpt" | "medgemma"
- *  - rater: string (USERX)   // ← required
+ *  - rater: string (USERX)
  */
 export default function RubricForm({
   disabledInitial = false,
@@ -17,7 +17,11 @@ export default function RubricForm({
   modelUsed,
   rater,
 }) {
-  const [scores, setScores] = useState([3, 3, 3, 3, 3]);
+  // 7 axes (default 3) + per-axis comment + optional extra comment
+  const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3]);
+  const [comments, setComments] = useState(["", "", "", "", "", "", ""]);
+  const [extra, setExtra] = useState("");
+
   const [saving, setSaving] = useState(false);
   const [locked, setLocked] = useState(!!disabledInitial);
   const [err, setErr] = useState("");
@@ -31,6 +35,54 @@ export default function RubricForm({
       return copy;
     });
 
+  const setComment = (i, v) =>
+    setComments((arr) => {
+      const copy = arr.slice();
+      copy[i] = v;
+      return copy;
+    });
+
+  const AXES = useMemo(
+    () => [
+      {
+        label: "Medical Accuracy & Completeness",
+        hint:
+          "All clinically relevant facts present, correct, not hallucinated. Subitems: symptom fidelity, history preserved, findings/diagnosis correctness, treatment fidelity.",
+      },
+      {
+        label: "Clinical Safety & Handover Utility",
+        hint:
+          "Safe to hand over without harm. Subitems: red-flags preserved; medication names/doses/units exact; labs/vitals intact; no dangerous omissions.",
+      },
+      {
+        label: "Guideline Alignment & Clinical Reasoning",
+        hint:
+          "Diagnosis/management align with standard practice. Subitems: diagnosis appropriateness; management aligns with guidelines; reasoning consistent.",
+      },
+      {
+        label: "Structure, Flow & Communication",
+        hint:
+          "Clear, coherent, faithful to consultation. Subitems: proper sectioning (S/O/A/P); chronology preserved; clear turns/transitions; clarity of explanations; key patient statements; respectful tone.",
+      },
+      {
+        label: "Communication, Rapport & Patient Engagement",
+        hint:
+          "Human interaction preserved. Subitems: clarity of explanations, respectful tone, empathy, patient participation, concerns addressed, education included.",
+      },
+      {
+        label: "Alignment Task",
+        hint:
+          "Each note sentence traceable to dialogue. If not, it’s unsupported (hallucination/added knowledge).",
+      },
+      {
+        label: "Language & Terminology",
+        hint:
+          "Idiomatic Urdu, consistent medical terms, glossary adherence.",
+      },
+    ],
+    []
+  );
+
   async function submit(e) {
     e.preventDefault();
     if (locked) return;
@@ -39,7 +91,7 @@ export default function RubricForm({
 
     try {
       const body = {
-        rater,                              // ← include rater
+        rater,
         modelId: itemId,
         datasetId,
         modelUsed,
@@ -50,6 +102,18 @@ export default function RubricForm({
           axis3: scores[2],
           axis4: scores[3],
           axis5: scores[4],
+          axis6: scores[5],
+          axis7: scores[6],
+          comments: {
+            axis1: comments[0] || "",
+            axis2: comments[1] || "",
+            axis3: comments[2] || "",
+            axis4: comments[3] || "",
+            axis5: comments[4] || "",
+            axis6: comments[5] || "",
+            axis7: comments[6] || "",
+            extra: extra || "",
+          },
         },
       };
 
@@ -62,6 +126,7 @@ export default function RubricForm({
       if (res.status === 409) {
         setLocked(true);
         setSaving(false);
+        setErr("");
         alert("You already submitted a rating for this item.");
         return;
       }
@@ -81,7 +146,6 @@ export default function RubricForm({
     }
   }
 
-  // Likert controls (same visual style you had)
   const Likert = ({ value, onChange, disabled }) => (
     <div className="flex items-center gap-2 text-[15px] select-none">
       {[0, 1, 2, 3, 4, 5].map((n) => (
@@ -104,56 +168,49 @@ export default function RubricForm({
     <form onSubmit={submit} className="space-y-4">
       <div className="font-semibold">Rubric (0–5)</div>
 
-      <Row
-        label="Medical accuracy & completeness"
-        control={
-          <Likert
-            value={scores[0]}
-            onChange={(v) => setAxis(0, v)}
-            disabled={locked}
-          />
-        }
-      />
-      <Row
-        label="Communication & rapport"
-        control={
-          <Likert
-            value={scores[1]}
-            onChange={(v) => setAxis(1, v)}
-            disabled={locked}
-          />
-        }
-      />
-      <Row
-        label="Structure & flow"
-        control={
-          <Likert
-            value={scores[2]}
-            onChange={(v) => setAxis(2, v)}
-            disabled={locked}
-          />
-        }
-      />
-      <Row
-        label="Language & terminology"
-        control={
-          <Likert
-            value={scores[3]}
-            onChange={(v) => setAxis(3, v)}
-            disabled={locked}
-          />
-        }
-      />
-      <Row
-        label="Patient-safety & handover utility"
-        control={
-          <Likert
-            value={scores[4]}
-            onChange={(v) => setAxis(4, v)}
-            disabled={locked}
-          />
-        }
-      />
+      {/* 7 axes */}
+      {AXES.map((ax, i) => (
+        <div key={ax.label} className="flex items-start justify-between gap-3">
+          <div className="text-sm">
+            <div className="font-medium">{ax.label}</div>
+            <div className="text-xs text-gray-500">{ax.hint}</div>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <Likert
+              value={scores[i]}
+              onChange={(v) => setAxis(i, v)}
+              disabled={locked}
+            />
+            {/* compact comment input to keep panel height similar */}
+            <input
+              type="text"
+              placeholder="1–2 lines on major deductions (optional)"
+              className="border rounded px-2 py-1 text-xs w-72"
+              disabled={locked}
+              value={comments[i]}
+              onChange={(e) => setComment(i, e.target.value)}
+            />
+          </div>
+        </div>
+      ))}
+
+      {/* Optional extra comment box */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-sm">
+          <div className="font-medium">Optional Open Axis — Extra Comment</div>
+          <div className="text-xs text-gray-500">
+            Explicit notes on hallucination/mistranslation or anything not covered above.
+          </div>
+        </div>
+        <input
+          type="text"
+          placeholder="Optional extra note"
+          className="border rounded px-2 py-1 text-xs w-72"
+          disabled={locked}
+          value={extra}
+          onChange={(e) => setExtra(e.target.value)}
+        />
+      </div>
 
       {err && <div className="text-sm text-red-700">{err}</div>}
 
@@ -169,14 +226,5 @@ export default function RubricForm({
         </button>
       )}
     </form>
-  );
-}
-
-function Row({ label, control }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="text-sm">{label}</div>
-      <div>{control}</div>
-    </div>
   );
 }
