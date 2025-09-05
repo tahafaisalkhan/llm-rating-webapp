@@ -1,15 +1,11 @@
 {
-  "name": "clinical-benchmarks-rubric",
-  "private": true,
-  "engines": {
-    "node": ">=18.17 <=22.x"
-  },
   "scripts": {
     "build:data": "node scripts/xlsx-to-json.js",
     "build:frontend": "vite build",
     "build": "npm run build:data && npm run build:frontend",
     "dev": "vite",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server/index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -18,6 +14,7 @@
   },
   "devDependencies": {
     "vite": "^5.4.0",
+    "@vitejs/plugin-react": "^4.3.0",
     "tailwindcss": "^3.4.10",
     "postcss": "^8.4.40",
     "autoprefixer": "^10.4.20"
