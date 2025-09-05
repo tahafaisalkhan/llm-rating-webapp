@@ -6,9 +6,10 @@
   },
   "scripts": {
     "build:data": "node scripts/xlsx-to-json.js",
-    "build": "npm run build:data && vite build",
-    "start": "node server/index.js",
-    "dev": "vite"
+    "build:frontend": "vite build",
+    "build": "npm run build:data && npm run build:frontend",
+    "dev": "vite",
+    "preview": "vite preview"
   },
   "dependencies": {
     "cors": "^2.8.5",
