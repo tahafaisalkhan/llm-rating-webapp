@@ -8,7 +8,6 @@ export default function Rubric() {
       <header className="space-y-2">
         <h1 className="text-3xl font-bold">Human-Evaluation Rubric</h1>
         <p className="text-sm text-gray-600">
-          A multi-axis rubric (7 axes) inspired by ArabicBench. Each axis is scored 0–5 and accompanied by a short (1–2 line) comment explaining major deductions.
         </p>
       </header>
 
