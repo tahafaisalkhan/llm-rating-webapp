@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import PanelCard from "../components/PanelCard";
-import PreferenceBox from "../components/PreferenceBox";
+import PreferenceBox from "../components/PreferenceBox"; // your existing component
 import { getRater, clearRater } from "../utils/auth";
 
 export default function Home() {
@@ -9,14 +9,14 @@ export default function Home() {
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  // Preference state per comparison
-  // selected: 1 | 2 | "tie"
-  const [selectedMap, setSelectedMap] = useState({});   // { [comparison]: 1|2|"tie" }
-  const [strengthMap, setStrengthMap] = useState({});   // { [comparison]: "weak"|"moderate"|"strong"|null }
-  const [locked, setLocked] = useState({});             // { [comparison]: true }
+  // preference state
+  const [choice, setChoice] = useState({});   // { [comparison]: 1 | 2 | "tie" }
+  const [strength, setStrength] = useState({}); // { [comparison]: "weak"|"moderate"|"strong"|null }
+  const [locked, setLocked] = useState({});   // { [comparison]: true }
 
-  // Rating status for cards
-  const [ratedMap, setRatedMap] = useState({}); // { "chatgpt:<id>": true, "medgemma:<id>": true }
+  // rating status for cards
+  const [ratedMap, setRatedMap] = useState({});   // { "chatgpt:<id>": true, "medgemma:<id>": true }
+  const [dangerMap, setDangerMap] = useState({}); // { "chatgpt:<id>": true if major_error, ... }
 
   useEffect(() => {
     (async () => {
@@ -37,13 +37,14 @@ export default function Home() {
 
   async function checkStatuses(rows) {
     const ratedEntries = {};
+    const dangerEntries = {};
     const lockedEntries = {};
-    const selectedEntries = {};
+    const choiceEntries = {};
     const strengthEntries = {};
     const fetches = [];
 
     for (const p of rows) {
-      // preference status per rater — supports tie (0) and strength
+      // preference status per rater
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -54,92 +55,82 @@ export default function Home() {
           .then((j) => {
             if (j?.exists) {
               lockedEntries[p.comparison] = true;
-              if (j.result === 0) selectedEntries[p.comparison] = "tie";
-              else if (j.result === 1) selectedEntries[p.comparison] = 1;
-              else if (j.result === 2) selectedEntries[p.comparison] = 2;
-              if (typeof j.strength === "string" || j.strength === null) {
-                strengthEntries[p.comparison] = j.strength;
+              // support new fields if your API returns them; otherwise we just mark locked
+              if (j.result === 1 || j.result === 2 || j.result === 0) {
+                choiceEntries[p.comparison] = j.result === 0 ? "tie" : j.result;
               }
+              if (j.strength) strengthEntries[p.comparison] = j.strength;
             }
           })
           .catch(() => {})
       );
 
       // rating status for each panel per rater
-      if (p.chatgpt?.id) {
-        fetches.push(
-          fetch(
-            `/api/ratings/status?modelUsed=chatgpt&modelId=${encodeURIComponent(
-              p.chatgpt.id
-            )}&rater=${encodeURIComponent(rater)}`
-          )
-            .then((r) => (r.ok ? r.json() : { exists: false }))
-            .then((j) => {
-              if (j?.exists) ratedEntries[`chatgpt:${p.chatgpt.id}`] = true;
-            })
-            .catch(() => {})
-        );
-      }
-      if (p.medgemma?.id) {
-        fetches.push(
-          fetch(
-            `/api/ratings/status?modelUsed=medgemma&modelId=${encodeURIComponent(
-              p.medgemma.id
-            )}&rater=${encodeURIComponent(rater)}`
-          )
-            .then((r) => (r.ok ? r.json() : { exists: false }))
-            .then((j) => {
-              if (j?.exists) ratedEntries[`medgemma:${p.medgemma.id}`] = true;
-            })
-            .catch(() => {})
-        );
-      }
+      const setStatusFetch = (modelUsed, idKey) =>
+        fetch(
+          `/api/ratings/status?modelUsed=${encodeURIComponent(
+            modelUsed
+          )}&modelId=${encodeURIComponent(idKey)}&rater=${encodeURIComponent(
+            rater
+          )}`
+        )
+          .then((r) => (r.ok ? r.json() : { exists: false }))
+          .then((j) => {
+            // We expect { exists, major_error? }
+            const mapKey = `${modelUsed}:${idKey}`;
+            if (j?.exists) ratedEntries[mapKey] = true;
+            if (j && typeof j.major_error === "boolean") {
+              dangerEntries[mapKey] = j.major_error;
+            }
+          })
+          .catch(() => {});
+
+      if (p.chatgpt?.id) fetches.push(setStatusFetch("chatgpt", p.chatgpt.id));
+      if (p.medgemma?.id) fetches.push(setStatusFetch("medgemma", p.medgemma.id));
     }
 
     await Promise.all(fetches);
     setRatedMap(ratedEntries);
+    setDangerMap(dangerEntries);
     setLocked((m) => ({ ...m, ...lockedEntries }));
-    setSelectedMap((m) => ({ ...m, ...selectedEntries }));
-    setStrengthMap((m) => ({ ...m, ...strengthEntries }));
+    setChoice((m) => ({ ...m, ...choiceEntries }));
+    setStrength((m) => ({ ...m, ...strengthEntries }));
   }
 
   async function submitPref(p) {
     if (locked[p.comparison]) return;
+    const selected = choice[p.comparison]; // 1 | 2 | "tie"
+    const selectedStrength = strength[p.comparison] || null;
 
-    const sel = selectedMap[p.comparison];            // 1 | 2 | "tie"
-    if (!(sel === 1 || sel === 2 || sel === "tie")) {
-      alert("Pick 1, 2, or Tie first.");
+    if (selected !== 1 && selected !== 2 && selected !== "tie") {
+      alert("Pick 1 or 2 or Tie first.");
+      return;
+    }
+    if (selected !== "tie" && !selectedStrength) {
+      alert("Pick a strength (Weak/Moderate/Strong).");
       return;
     }
 
-    // Map UI to backend: tie -> 0
-    const result = sel === "tie" ? 0 : sel;
-    const strength =
-      result === 0 ? undefined : (strengthMap[p.comparison] || null);
-
     try {
-      const body = {
-        comparison: p.comparison,
-        set1Id: p.chatgpt?.id || "",
-        set2Id: p.medgemma?.id || "",
-        result, // 0 | 1 | 2
-        rater,
-        ...(result !== 0 ? { strength } : {}), // include strength only for non-tie
-      };
-
       const res = await fetch("/api/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          comparison: p.comparison,
+          set1Id: p.chatgpt?.id || "",
+          set2Id: p.medgemma?.id || "",
+          // backend expects: 1 | 2 | 0 (tie)
+          result: selected === "tie" ? 0 : selected,
+          strength: selected === "tie" ? null : selectedStrength || null,
+          rater, // per-user submission
+        }),
       });
-
       if (res.status === 409) {
         setLocked((m) => ({ ...m, [p.comparison]: true }));
         alert("Already submitted for this comparison.");
         return;
       }
       if (!res.ok) throw new Error(await res.text());
-
       setLocked((m) => ({ ...m, [p.comparison]: true }));
       alert("Preference submitted.");
     } catch (e) {
@@ -150,7 +141,7 @@ export default function Home() {
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
-      {/* Top bar */}
+      {/* Top bar: rubric left, centered title, user & logout right */}
       <div className="flex items-center justify-between mb-2">
         <a
           href="/rubric"
@@ -189,20 +180,21 @@ export default function Home() {
       {err && <div className="text-sm text-red-700">{err}</div>}
 
       {pairs.map((p) => {
-        const comp = p.comparison;
-        const lockedRow = !!locked[comp];
-        const selected = selectedMap[comp];              // 1 | 2 | "tie"
-        const strength = strengthMap[comp] || null;
+        const lockedRow = !!locked[p.comparison];
+        const selected = choice[p.comparison];
+        const selectedStrength = strength[p.comparison] || null;
 
-        const set1Rated = p.chatgpt?.id
-          ? !!ratedMap[`chatgpt:${p.chatgpt.id}`]
-          : false;
-        const set2Rated = p.medgemma?.id
-          ? !!ratedMap[`medgemma:${p.medgemma.id}`]
-          : false;
+        const set1Key = p.chatgpt?.id ? `chatgpt:${p.chatgpt.id}` : null;
+        const set2Key = p.medgemma?.id ? `medgemma:${p.medgemma.id}` : null;
+
+        const set1Rated = set1Key ? !!ratedMap[set1Key] : false;
+        const set2Rated = set2Key ? !!ratedMap[set2Key] : false;
+
+        const set1Danger = set1Key ? !!dangerMap[set1Key] : false;
+        const set2Danger = set2Key ? !!dangerMap[set2Key] : false;
 
         return (
-          <div key={comp} className="grid grid-cols-3 gap-4 items-start">
+          <div key={p.comparison} className="grid grid-cols-3 gap-4 items-start">
             {/* Set 1 card */}
             <div>
               {p.chatgpt ? (
@@ -211,6 +203,7 @@ export default function Home() {
                   datasetid={p.chatgpt.datasetid}
                   setLabel="set1"
                   rated={set1Rated}
+                  danger={set1Danger}   // ← NEW: render red when true
                 />
               ) : (
                 <Blank label="No Set 1 item" />
@@ -225,30 +218,24 @@ export default function Home() {
                   datasetid={p.medgemma.datasetid}
                   setLabel="set2"
                   rated={set2Rated}
+                  danger={set2Danger}   // ← NEW
                 />
               ) : (
                 <Blank label="No Set 2 item" />
               )}
             </div>
 
-            {/* Preference column — uses your PreferenceBox component */}
-            <div className="flex items-center justify-center">
+            {/* Preference controls */}
+            <div className="flex flex-col items-center justify-start">
               <PreferenceBox
                 locked={lockedRow}
                 selected={selected}
-                setSelected={(val) => {
-                  setSelectedMap((m) => ({ ...m, [comp]: val }));
-                  // When switching to 1/2 from tie/undefined, if no strength set, default to "weak"
-                  if ((val === 1 || val === 2) && (strengthMap[comp] == null)) {
-                    setStrengthMap((m) => ({ ...m, [comp]: "weak" }));
-                  }
-                  if (val === "tie") {
-                    setStrengthMap((m) => ({ ...m, [comp]: null }));
-                  }
-                }}
-                strength={strength}
-                setStrength={(s) =>
-                  setStrengthMap((m) => ({ ...m, [comp]: s }))
+                setSelected={(val) =>
+                  setChoice((m) => ({ ...m, [p.comparison]: val }))
+                }
+                strength={selectedStrength}
+                setStrength={(val) =>
+                  setStrength((m) => ({ ...m, [p.comparison]: val }))
                 }
                 onSubmit={() => submitPref(p)}
               />

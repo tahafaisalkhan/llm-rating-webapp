@@ -20,6 +20,7 @@ export default function RubricForm({
   // 7 axes, default 3
   const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3]);
   const [extra, setExtra] = useState("");
+  const [majorError, setMajorError] = useState(false); // ← NEW
 
   const [saving, setSaving] = useState(false);
   const [locked, setLocked] = useState(!!disabledInitial);
@@ -34,7 +35,7 @@ export default function RubricForm({
       return copy;
     });
 
-  // EXACT order requested:
+  // EXACT order requested
   const AXES = useMemo(
     () => [
       {
@@ -98,6 +99,7 @@ export default function RubricForm({
           axis7: scores[6],
           comments: { extra: extra || "" }, // only single extra note
         },
+        major_error: !!majorError, // ← NEW
       };
 
       const res = await fetch("/api/ratings", {
@@ -128,6 +130,7 @@ export default function RubricForm({
     }
   }
 
+  // Likert: keep compact, bring a bit closer to labels (gap-2)
   const Likert = ({ value, onChange, disabled }) => (
     <div className="flex items-center gap-2 text-[13px] select-none">
       {[0, 1, 2, 3, 4, 5].map((n) => (
@@ -148,7 +151,38 @@ export default function RubricForm({
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <div className="font-semibold">Rubric (0–5)</div>
+      {/* Header + right-side switch */}
+      <div className="flex items-center justify-between">
+        <div className="font-semibold">Rubric (0–5)</div>
+
+        {/* Simple toggle; small & unobtrusive */}
+        <label className="flex items-center gap-2 text-sm select-none">
+          <input
+            type="checkbox"
+            className="peer sr-only"
+            checked={majorError}
+            disabled={locked}
+            onChange={(e) => setMajorError(e.target.checked)}
+          />
+          {/* Switch UI */}
+          <span
+            className={[
+              "relative inline-block h-5 w-9 rounded-full transition-colors",
+              locked ? "opacity-60" : "",
+              majorError ? "bg-red-600" : "bg-gray-300",
+            ].join(" ")}
+            aria-hidden="true"
+          >
+            <span
+              className={[
+                "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform",
+                majorError ? "translate-x-4" : "",
+              ].join(" ")}
+            />
+          </span>
+          <span>Major Clinical Error</span>
+        </label>
+      </div>
 
       {/* Keep compact/scrollable sizing as before */}
       <div className="max-h-56 overflow-y-auto pr-1">
@@ -156,7 +190,7 @@ export default function RubricForm({
           {AXES.map((ax, i) => (
             <div
               key={ax.label}
-              className="flex items-center justify-between gap-3"
+              className="flex items-center justify-between gap-2"
               title={ax.title}
             >
               <div className="text-sm">{ax.label}</div>
