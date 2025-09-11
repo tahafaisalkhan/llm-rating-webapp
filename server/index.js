@@ -10,7 +10,7 @@ const Preference = require("./models/Preference");
 
 // --- Mongo ---
 const MONGO_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/clinical";
-const MONGO_DB  = process.env.MONGODB_DB  || "clinical_ratings";
+const MONGO_DB = process.env.MONGODB_DB || "clinical_ratings";
 
 mongoose
   .connect(MONGO_URI, { dbName: MONGO_DB })
@@ -32,7 +32,7 @@ app.get("/api/health", (_req, res) =>
 // ---------- RATINGS ----------
 /**
  * POST /api/ratings
- * Body: { rater, modelId, datasetId, modelUsed, comparison, scores:{axis1..axis7, comments:{extra}} }
+ * Body: { rater, modelId, datasetId, modelUsed, comparison, scores:{axis1..axisN} }
  * Single submission per (rater, modelUsed, modelId) -> 409 on duplicate
  */
 app.post("/api/ratings", async (req, res) => {
@@ -53,6 +53,7 @@ app.post("/api/ratings", async (req, res) => {
       });
       return res.status(201).json({ ok: true, id: doc._id });
     } catch (e) {
+      // unique index conflict => already submitted
       if (e && e.code === 11000) {
         return res.status(409).json({ error: "Already submitted" });
       }
@@ -84,29 +85,35 @@ app.get("/api/ratings/status", async (req, res) => {
 // ---------- PREFERENCES ----------
 /**
  * POST /api/preferences
- * Body: { rater, comparison, set1Id, set2Id, result(0|1|2), strength? ('weak'|'moderate'|'strong') }
+ * Body: { rater, comparison, set1Id, set2Id, result(0|1|2), strength?("weak"|"moderate"|"strong") }
+ * - 0 = tie, 1 = set1, 2 = set2
+ * - strength is optional and ignored when result === 0 (tie)
  * Single submission per (rater, comparison) -> 409 on duplicate
  */
 app.post("/api/preferences", async (req, res) => {
   try {
     const { rater, comparison, set1Id, set2Id, result, strength } = req.body || {};
-    if (!rater || !comparison || (result === undefined || result === null)) {
+    if (!rater || !comparison || result === undefined) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    const r = Number(result);
-    if (![0, 1, 2].includes(r)) {
+
+    const numResult = Number(result);
+    if (![0, 1, 2].includes(numResult)) {
       return res.status(400).json({ error: "result must be 0 (tie), 1, or 2" });
     }
 
-    // For ties, strength must be null/undefined; for 1/2, strength must be provided & valid.
-    let finalStrength = null;
-    if (r === 0) {
-      finalStrength = null;
-    } else {
-      if (!["weak", "moderate", "strong"].includes(String(strength || ""))) {
-        return res.status(400).json({ error: "strength must be weak|moderate|strong when result is 1 or 2" });
+    // Normalize strength: only store if not a tie; otherwise null.
+    let normalizedStrength = null;
+    if (numResult !== 0) {
+      if (strength == null) {
+        normalizedStrength = null;
+      } else {
+        const s = String(strength).toLowerCase();
+        if (!["weak", "moderate", "strong"].includes(s)) {
+          return res.status(400).json({ error: "strength must be weak|moderate|strong when provided" });
+        }
+        normalizedStrength = s;
       }
-      finalStrength = strength;
     }
 
     try {
@@ -115,8 +122,8 @@ app.post("/api/preferences", async (req, res) => {
         comparison,
         set1Id: set1Id || "",
         set2Id: set2Id || "",
-        result: r,
-        strength: finalStrength,
+        result: numResult,
+        strength: normalizedStrength,
       });
       return res.status(201).json({ ok: true, id: doc._id });
     } catch (e) {
@@ -133,7 +140,7 @@ app.post("/api/preferences", async (req, res) => {
 
 /**
  * GET /api/preferences/status?comparison=...&rater=USER1
- * -> { exists: boolean, result?: 0|1|2, strength?: 'weak'|'moderate'|'strong'|null }
+ * -> { exists: boolean, result?: 0|1|2, strength?: "weak"|"moderate"|"strong"|null }
  */
 app.get("/api/preferences/status", async (req, res) => {
   try {
@@ -141,14 +148,13 @@ app.get("/api/preferences/status", async (req, res) => {
     if (!comparison || !rater) return res.json({ exists: false });
 
     const hit = await Preference.findOne({ comparison, rater }).lean();
-    if (hit) {
-      return res.json({
-        exists: true,
-        result: hit.result,
-        strength: hit.strength ?? null,
-      });
-    }
-    return res.json({ exists: false });
+    if (!hit) return res.json({ exists: false });
+
+    res.json({
+      exists: true,
+      result: hit.result,
+      strength: hit.strength ?? null,
+    });
   } catch (e) {
     console.error("GET /api/preferences/status error:", e);
     res.json({ exists: false });
