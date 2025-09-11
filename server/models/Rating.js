@@ -1,8 +1,9 @@
-// server/models/Rating.js
+const mongoose = require("mongoose");
+
 const RatingSchema = new mongoose.Schema(
   {
-    rater: { type: String, required: true },
-    modelId: { type: String, required: true },
+    rater: { type: String, required: true },        // USER1 / USER2
+    modelId: { type: String, required: true },      // e.g. c_aci_026 or g_aci_026
     datasetId: { type: String, default: "" },
     modelUsed: {
       type: String,
@@ -10,6 +11,9 @@ const RatingSchema = new mongoose.Schema(
       required: true,
     },
     comparison: { type: String, default: "" },
+
+    // NEW: flag for major clinical error
+    major_error: { type: Boolean, default: false },
 
     scores: {
       axis1: { type: Number, min: 0, max: 5, required: true },
@@ -19,19 +23,16 @@ const RatingSchema = new mongoose.Schema(
       axis5: { type: Number, min: 0, max: 5, required: true },
       axis6: { type: Number, min: 0, max: 5, required: true },
       axis7: { type: Number, min: 0, max: 5, required: true },
+
       comments: {
-        axis1: { type: String, default: "" },
-        axis2: { type: String, default: "" },
-        axis3: { type: String, default: "" },
-        axis4: { type: String, default: "" },
-        axis5: { type: String, default: "" },
-        axis6: { type: String, default: "" },
-        axis7: { type: String, default: "" },
         extra: { type: String, default: "" },
       },
     },
-
-    major_error: { type: Boolean, default: false },  // ← NEW
   },
   { timestamps: true }
 );
+
+// one submission per (user, modelUsed, modelId)
+RatingSchema.index({ rater: 1, modelUsed: 1, modelId: 1 }, { unique: true });
+
+module.exports = mongoose.model("Rating", RatingSchema);
