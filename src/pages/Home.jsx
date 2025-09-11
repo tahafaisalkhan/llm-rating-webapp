@@ -44,7 +44,7 @@ export default function Home() {
     const fetches = [];
 
     for (const p of rows) {
-      // preference status per rater (now returns result and strength)
+      // preference status per rater (returns result and strength)
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -225,9 +225,9 @@ export default function Home() {
             </div>
 
             {/* Preference controls */}
-            <div className="flex flex-col items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-3 flex-wrap">
               {/* A/B/Tie buttons */}
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center gap-2">
                 <ButtonPref
                   label="1"
                   active={selected === 1}
@@ -256,27 +256,46 @@ export default function Home() {
                 />
               </div>
 
-              {/* Strength mini-likert: only show if 1 or 2 selected */}
+              {/* Strength pills: only when 1 or 2 selected */}
               {(selected === 1 || selected === 2) && (
-                <div className="flex items-center gap-3 text-xs">
-                  {["weak", "moderate", "strong"].map((s) => (
-                    <label key={s} className="inline-flex items-center gap-1">
-                      <input
-                        type="radio"
-                        name={`strength-${p.comparison}`}
-                        disabled={lockedRow}
-                        checked={(strength[p.comparison] || "") === s}
-                        onChange={() =>
-                          setStrength((m) => ({ ...m, [p.comparison]: s }))
-                        }
-                        className="h-3.5 w-3.5"
-                      />
-                      <span className="capitalize">{s}</span>
-                    </label>
-                  ))}
+                <div className="flex items-center gap-2 text-xs">
+                  <StrengthPill
+                    color="bg-yellow-400"
+                    label="Weak"
+                    value="weak"
+                    name={`strength-${p.comparison}`}
+                    checked={(strength[p.comparison] || "") === "weak"}
+                    disabled={lockedRow}
+                    onChange={() =>
+                      setStrength((m) => ({ ...m, [p.comparison]: "weak" }))
+                    }
+                  />
+                  <StrengthPill
+                    color="bg-orange-500"
+                    label="Moderate"
+                    value="moderate"
+                    name={`strength-${p.comparison}`}
+                    checked={(strength[p.comparison] || "") === "moderate"}
+                    disabled={lockedRow}
+                    onChange={() =>
+                      setStrength((m) => ({ ...m, [p.comparison]: "moderate" }))
+                    }
+                  />
+                  <StrengthPill
+                    color="bg-red-600"
+                    label="Strong"
+                    value="strong"
+                    name={`strength-${p.comparison}`}
+                    checked={(strength[p.comparison] || "") === "strong"}
+                    disabled={lockedRow}
+                    onChange={() =>
+                      setStrength((m) => ({ ...m, [p.comparison]: "strong" }))
+                    }
+                  />
                 </div>
               )}
 
+              {/* Submit now sits to the RIGHT */}
               {lockedRow ? (
                 <span className="text-green-700 font-semibold">✓ Submitted</span>
               ) : (
@@ -306,11 +325,35 @@ function Blank({ label }) {
 function ButtonPref({ label, active, disabled, onClick }) {
   const base = "border px-3 py-1 rounded";
   const on   = "bg-blue-600 text-white";
-  const off  = "";
-  const dis  = disabled ? "opacity-80 cursor-not-allowed" : "";
+  const off  = "bg-white";
+  const dis  = disabled ? "opacity-80 cursor-not-allowed" : "hover:bg-blue-50";
   return (
     <button className={`${base} ${active ? on : off} ${dis}`} disabled={disabled} onClick={onClick}>
       {label}
     </button>
+  );
+}
+
+/** Colored “radio-pill” for strength */
+function StrengthPill({ color, label, value, name, checked, disabled, onChange }) {
+  const ring = checked ? `ring-2 ring-offset-1 ring-gray-700` : "ring-1 ring-gray-300";
+  const shade = checked ? color : "bg-gray-100";
+  const text = checked ? "text-white" : "text-gray-700";
+  const cursor = disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer";
+  return (
+    <label className={`inline-flex items-center gap-2 ${cursor}`}>
+      <input
+        type="radio"
+        className="sr-only"
+        name={name}
+        value={value}
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+      />
+      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${shade} ${text} ${ring}`}>
+        {label}
+      </span>
+    </label>
   );
 }
