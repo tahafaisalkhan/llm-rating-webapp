@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import PanelCard from "../components/PanelCard";
-import PreferenceBox from "../components/PreferenceBox";
 import { getRater, clearRater } from "../utils/auth";
 
 export default function Home() {
@@ -10,10 +9,10 @@ export default function Home() {
   const [err, setErr] = useState("");
 
   // preference state
-  // choice[comparison] = 1 | 2 | "tie"
-  // choice[`${comparison}:strength`] = "weak" | "moderate" | "strong"
-  const [choice, setChoice] = useState({});
-  const [locked, setLocked] = useState({}); // { [comparison]: true }
+  // result: 0 (tie) | 1 | 2
+  const [choice, setChoice] = useState({});        // { [comparison]: 0|1|2 }
+  const [strengthMap, setStrengthMap] = useState({}); // { [comparison]: "weak"|"moderate"|"strong"|null }
+  const [locked, setLocked] = useState({});        // { [comparison]: true }
 
   // rating status for cards
   const [ratedMap, setRatedMap] = useState({}); // { "chatgpt:<id>": true, "medgemma:<id>": true }
@@ -39,10 +38,11 @@ export default function Home() {
     const ratedEntries = {};
     const lockedEntries = {};
     const choiceEntries = {};
+    const strengthEntries = {};
     const fetches = [];
 
     for (const p of rows) {
-      // preference status per rater
+      // preference status per rater (includes tie 0 and strength)
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -53,13 +53,12 @@ export default function Home() {
           .then((j) => {
             if (j?.exists) {
               lockedEntries[p.comparison] = true;
-              // result can be 1 | 2 | "tie"
-              if (j.result === 1 || j.result === 2 || j.result === "tie") {
+              if (j.result === 0 || j.result === 1 || j.result === 2) {
                 choiceEntries[p.comparison] = j.result;
               }
-              // optional strength from server
-              if (j.strength) {
-                choiceEntries[`${p.comparison}:strength`] = j.strength;
+              // j.strength can be null for tie or missing
+              if (typeof j.strength === "string" || j.strength === null) {
+                strengthEntries[p.comparison] = j.strength;
               }
             }
           })
@@ -101,35 +100,37 @@ export default function Home() {
     setRatedMap(ratedEntries);
     setLocked((m) => ({ ...m, ...lockedEntries }));
     setChoice((m) => ({ ...m, ...choiceEntries }));
+    setStrengthMap((m) => ({ ...m, ...strengthEntries }));
   }
 
   async function submitPref(p) {
     if (locked[p.comparison]) return;
+    const result = choice[p.comparison];
 
-    const pref = choice[p.comparison]; // 1 | 2 | "tie"
-    const strength = choice[`${p.comparison}:strength`] || null;
-
-    if (pref !== 1 && pref !== 2 && pref !== "tie") {
+    // must be 0 (tie), 1, or 2
+    if (![0, 1, 2].includes(result)) {
       alert("Pick 1, 2, or Tie first.");
       return;
     }
-    if (pref !== "tie" && !strength) {
-      alert("How strong? Choose Weak / Moderate / Strong.");
-      return;
-    }
+
+    // strength only when result is 1 or 2
+    const strength = result === 0 ? undefined : (strengthMap[p.comparison] || null);
 
     try {
+      const body = {
+        comparison: p.comparison,
+        set1Id: p.chatgpt?.id || "",
+        set2Id: p.medgemma?.id || "",
+        result: Number(result),
+        rater, // per-user submission
+        // Include strength only for non-tie (backend ignores when tie anyway)
+        ...(result !== 0 ? { strength } : {}),
+      };
+
       const res = await fetch("/api/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          comparison: p.comparison,
-          set1Id: p.chatgpt?.id || "",
-          set2Id: p.medgemma?.id || "",
-          result: pref,                                 // 1 | 2 | "tie"
-          strength: pref === "tie" ? null : strength,   // omit when tie
-          rater,                                        // per-user submission
-        }),
+        body: JSON.stringify(body),
       });
 
       if (res.status === 409) {
@@ -190,8 +191,7 @@ export default function Home() {
       {pairs.map((p) => {
         const lockedRow = !!locked[p.comparison];
         const selected = choice[p.comparison];
-        const strKey = `${p.comparison}:strength`;
-        const selectedStrength = choice[strKey] || null;
+        const strength = strengthMap[p.comparison] || null;
 
         const set1Rated = p.chatgpt?.id
           ? !!ratedMap[`chatgpt:${p.chatgpt.id}`]
@@ -230,21 +230,110 @@ export default function Home() {
               )}
             </div>
 
-            {/* Preference controls (A/B/Tie + strength below; Submit pinned right) */}
-            <div className="flex items-start justify-center">
-              <PreferenceBox
-                locked={lockedRow}
-                selected={selected} // 1 | 2 | "tie"
-                setSelected={(val) =>
-                  setChoice((m) => ({ ...m, [p.comparison]: val }))
-                }
-                strength={selectedStrength}
-                setStrength={(val) =>
-                  setChoice((m) => ({ ...m, [strKey]: val }))
-                }
-                onSubmit={() => submitPref(p)}
-              />
+            {/* Preference controls (keep original look & spacing) */}
+            <div className="flex items-center justify-center gap-2">
+              {/* 1 */}
+              <button
+                disabled={lockedRow}
+                className={`border px-3 py-1 rounded ${
+                  selected === 1
+                    ? lockedRow
+                      ? "bg-green-600 text-white"
+                      : "bg-blue-600 text-white"
+                    : ""
+                } ${lockedRow ? "opacity-80 cursor-not-allowed" : ""}`}
+                onClick={() => {
+                  setChoice((m) => ({ ...m, [p.comparison]: 1 }));
+                  // keep existing strength selection unless tie was selected earlier
+                  if (strengthMap[p.comparison] == null) {
+                    setStrengthMap((m) => ({ ...m, [p.comparison]: "weak" }));
+                  }
+                }}
+              >
+                1
+              </button>
+
+              {/* 2 */}
+              <button
+                disabled={lockedRow}
+                className={`border px-3 py-1 rounded ${
+                  selected === 2
+                    ? lockedRow
+                      ? "bg-green-600 text-white"
+                      : "bg-blue-600 text-white"
+                    : ""
+                } ${lockedRow ? "opacity-80 cursor-not-allowed" : ""}`}
+                onClick={() => {
+                  setChoice((m) => ({ ...m, [p.comparison]: 2 }));
+                  if (strengthMap[p.comparison] == null) {
+                    setStrengthMap((m) => ({ ...m, [p.comparison]: "weak" }));
+                  }
+                }}
+              >
+                2
+              </button>
+
+              {/* Tie (0) */}
+              <button
+                disabled={lockedRow}
+                className={`border px-3 py-1 rounded ${
+                  selected === 0
+                    ? lockedRow
+                      ? "bg-green-600 text-white"
+                      : "bg-blue-600 text-white"
+                    : ""
+                } ${lockedRow ? "opacity-80 cursor-not-allowed" : ""}`}
+                onClick={() => {
+                  setChoice((m) => ({ ...m, [p.comparison]: 0 }));
+                  // clear strength for ties
+                  setStrengthMap((m) => ({ ...m, [p.comparison]: null }));
+                }}
+              >
+                Tie
+              </button>
+
+              {/* Submit */}
+              {lockedRow ? (
+                <span className="text-green-700 font-semibold ml-2">✓ Submitted</span>
+              ) : (
+                <button
+                  className="border px-3 py-1 rounded font-semibold bg-black text-white ml-2"
+                  onClick={() => submitPref(p)}
+                >
+                  Submit
+                </button>
+              )}
             </div>
+
+            {/* Strength chips appear only when 1 or 2 selected (not for tie) */}
+            {selected === 1 || selected === 2 ? (
+              <div className="col-span-3 flex items-center justify-center gap-3 -mt-2">
+                {["weak", "moderate", "strong"].map((s) => {
+                  const active = strength === s;
+                  return (
+                    <button
+                      key={s}
+                      disabled={lockedRow}
+                      onClick={() =>
+                        setStrengthMap((m) => ({ ...m, [p.comparison]: s }))
+                      }
+                      className={
+                        "px-3 py-1 rounded-full border text-sm " +
+                        (active
+                          ? s === "weak"
+                            ? "bg-yellow-100 border-yellow-300"
+                            : s === "moderate"
+                            ? "bg-blue-100 border-blue-300"
+                            : "bg-red-500 text-white border-red-600"
+                          : "bg-gray-50 border-gray-300")
+                      }
+                    >
+                      {s[0].toUpperCase() + s.slice(1)}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         );
       })}
