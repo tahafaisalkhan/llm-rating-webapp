@@ -1,6 +1,6 @@
+// src/pages/Home.jsx
 import { useEffect, useState } from "react";
 import PanelCard from "../components/PanelCard";
-import PreferenceBox from "../components/PreferenceBox";
 import { getRater, clearRater } from "../utils/auth";
 
 export default function Home() {
@@ -10,10 +10,12 @@ export default function Home() {
   const [err, setErr] = useState("");
 
   // preference state
-  // choice[comparison] = 1 | 2 | "tie"
-  // choice[`${comparison}:strength`] = "weak" | "moderate" | "strong"
+  // choice: { [comparison]: 1 | 2 | 'tie' }
   const [choice, setChoice] = useState({});
-  const [locked, setLocked] = useState({}); // { [comparison]: true }
+  // strength: { [comparison]: 'weak' | 'moderate' | 'strong' | undefined }
+  const [strength, setStrength] = useState({});
+  // locked (already submitted): { [comparison]: true }
+  const [locked, setLocked] = useState({});
 
   // rating status for cards
   const [ratedMap, setRatedMap] = useState({}); // { "chatgpt:<id>": true, "medgemma:<id>": true }
@@ -53,13 +55,13 @@ export default function Home() {
           .then((j) => {
             if (j?.exists) {
               lockedEntries[p.comparison] = true;
-              // result can be 1 | 2 | "tie"
-              if (j.result === 1 || j.result === 2 || j.result === "tie") {
-                choiceEntries[p.comparison] = j.result;
-              }
-              // optional strength from server
+              // server returns result: 0|1|2 ; map 0 -> 'tie'
+              if (j.result === 0) choiceEntries[p.comparison] = "tie";
+              if (j.result === 1) choiceEntries[p.comparison] = 1;
+              if (j.result === 2) choiceEntries[p.comparison] = 2;
+              // strength optional; if server returns it, reflect it
               if (j.strength) {
-                choiceEntries[`${p.comparison}:strength`] = j.strength;
+                setStrength((m) => ({ ...m, [p.comparison]: j.strength }));
               }
             }
           })
@@ -106,17 +108,19 @@ export default function Home() {
   async function submitPref(p) {
     if (locked[p.comparison]) return;
 
-    const pref = choice[p.comparison]; // 1 | 2 | "tie"
-    const strength = choice[`${p.comparison}:strength`] || null;
+    const sel = choice[p.comparison]; // 1 | 2 | 'tie'
+    const str = strength[p.comparison] || null; // 'weak'|'moderate'|'strong'|null
 
-    if (pref !== 1 && pref !== 2 && pref !== "tie") {
+    if (sel !== 1 && sel !== 2 && sel !== "tie") {
       alert("Pick 1, 2, or Tie first.");
       return;
     }
-    if (pref !== "tie" && !strength) {
-      alert("How strong? Choose Weak / Moderate / Strong.");
+    if (sel !== "tie" && !str) {
+      alert("Pick strength (weak / moderate / strong).");
       return;
     }
+
+    const resultNum = sel === "tie" ? 0 : sel;
 
     try {
       const res = await fetch("/api/preferences", {
@@ -126,19 +130,17 @@ export default function Home() {
           comparison: p.comparison,
           set1Id: p.chatgpt?.id || "",
           set2Id: p.medgemma?.id || "",
-          result: pref,                                 // 1 | 2 | "tie"
-          strength: pref === "tie" ? null : strength,   // omit when tie
-          rater,                                        // per-user submission
+          result: resultNum, // 0 | 1 | 2
+          strength: sel === "tie" ? null : str, // omit/ignore for tie
+          rater, // per-user submission
         }),
       });
-
       if (res.status === 409) {
         setLocked((m) => ({ ...m, [p.comparison]: true }));
         alert("Already submitted for this comparison.");
         return;
       }
       if (!res.ok) throw new Error(await res.text());
-
       setLocked((m) => ({ ...m, [p.comparison]: true }));
       alert("Preference submitted.");
     } catch (e) {
@@ -149,7 +151,7 @@ export default function Home() {
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
-      {/* Top bar: rubric left, centered title, user & logout right */}
+      {/* Top bar */}
       <div className="flex items-center justify-between mb-2">
         <a
           href="/rubric"
@@ -189,9 +191,8 @@ export default function Home() {
 
       {pairs.map((p) => {
         const lockedRow = !!locked[p.comparison];
-        const selected = choice[p.comparison];
-        const strKey = `${p.comparison}:strength`;
-        const selectedStrength = choice[strKey] || null;
+        const sel = choice[p.comparison]; // 1 | 2 | 'tie'
+        const str = strength[p.comparison]; // 'weak' | 'moderate' | 'strong' | undefined
 
         const set1Rated = p.chatgpt?.id
           ? !!ratedMap[`chatgpt:${p.chatgpt.id}`]
@@ -199,6 +200,10 @@ export default function Home() {
         const set2Rated = p.medgemma?.id
           ? !!ratedMap[`medgemma:${p.medgemma.id}`]
           : false;
+
+        const canSubmit =
+          !lockedRow &&
+          ((sel === "tie") || (sel === 1 || sel === 2) && !!str);
 
         return (
           <div key={p.comparison} className="grid grid-cols-3 gap-4 items-start">
@@ -230,20 +235,98 @@ export default function Home() {
               )}
             </div>
 
-            {/* Preference controls (A/B/Tie + strength below; Submit pinned right) */}
-            <div className="flex items-start justify-center">
-              <PreferenceBox
-                locked={lockedRow}
-                selected={selected} // 1 | 2 | "tie"
-                setSelected={(val) =>
-                  setChoice((m) => ({ ...m, [p.comparison]: val }))
-                }
-                strength={selectedStrength}
-                setStrength={(val) =>
-                  setChoice((m) => ({ ...m, [strKey]: val }))
-                }
-                onSubmit={() => submitPref(p)}
-              />
+            {/* Preference controls */}
+            <div className="flex items-center justify-between gap-3 pr-2">
+              {/* left group: main buttons + (optional) strength */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <MiniBtn
+                    label="1"
+                    active={sel === 1}
+                    disabled={lockedRow}
+                    onClick={() =>
+                      setChoice((m) => ({ ...m, [p.comparison]: 1 }))
+                    }
+                  />
+                  <MiniBtn
+                    label="2"
+                    active={sel === 2}
+                    disabled={lockedRow}
+                    onClick={() =>
+                      setChoice((m) => ({ ...m, [p.comparison]: 2 }))
+                    }
+                  />
+                  <MiniBtn
+                    label="Tie"
+                    active={sel === "tie"}
+                    disabled={lockedRow}
+                    onClick={() => {
+                      setChoice((m) => ({ ...m, [p.comparison]: "tie" }));
+                      // clear strength for tie
+                      setStrength((m) => {
+                        const copy = { ...m };
+                        delete copy[p.comparison];
+                        return copy;
+                      });
+                    }}
+                  />
+                </div>
+
+                {/* strength only when 1 or 2 is chosen */}
+                {(sel === 1 || sel === 2) && (
+                  <div className="flex items-center gap-2">
+                    <Pill
+                      label="Weak"
+                      tone="weak"
+                      active={str === "weak"}
+                      disabled={lockedRow}
+                      onClick={() =>
+                        setStrength((m) => ({ ...m, [p.comparison]: "weak" }))
+                      }
+                    />
+                    <Pill
+                      label="Moderate"
+                      tone="moderate"
+                      active={str === "moderate"}
+                      disabled={lockedRow}
+                      onClick={() =>
+                        setStrength((m) => ({
+                          ...m,
+                          [p.comparison]: "moderate",
+                        }))
+                      }
+                    />
+                    <Pill
+                      label="Strong"
+                      tone="strong"
+                      active={str === "strong"}
+                      disabled={lockedRow}
+                      onClick={() =>
+                        setStrength((m) => ({ ...m, [p.comparison]: "strong" }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* right: submit / submitted */}
+              {lockedRow ? (
+                <span className="text-green-700 font-semibold whitespace-nowrap">
+                  ✓ Submitted
+                </span>
+              ) : (
+                <button
+                  className={`px-4 py-2 rounded font-semibold text-white ${
+                    canSubmit
+                      ? "bg-black hover:bg-gray-900"
+                      : "bg-gray-500 cursor-not-allowed"
+                  }`}
+                  onClick={() => canSubmit && submitPref(p)}
+                  disabled={!canSubmit}
+                >
+                  Submit
+                </button>
+              )}
             </div>
           </div>
         );
@@ -257,5 +340,51 @@ function Blank({ label }) {
     <div className="border rounded p-4 bg-white text-sm text-gray-500">
       {label}
     </div>
+  );
+}
+
+/* ---------- Small UI helpers ---------- */
+
+function MiniBtn({ label, active, disabled, onClick }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={[
+        "px-3 py-1 text-sm rounded-md border",
+        "transition-colors whitespace-nowrap",
+        disabled ? "opacity-70 cursor-not-allowed" : "hover:bg-gray-100",
+        active ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-800",
+      ].join(" ")}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Pill({ label, tone, active, disabled, onClick }) {
+  const base =
+    "px-3 py-1 text-sm rounded-full border whitespace-nowrap transition-colors";
+  const off = "bg-white text-gray-700 border-gray-300 hover:bg-gray-100";
+  const onByTone = {
+    weak: "bg-sky-100 text-sky-800 border-sky-300",
+    moderate: "bg-amber-100 text-amber-800 border-amber-300",
+    strong: "bg-red-600 text-white border-red-700",
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={[
+        base,
+        disabled ? "opacity-70 cursor-not-allowed" : "",
+        active ? onByTone : off,
+      ].join(" ")}
+    >
+      {label}
+    </button>
   );
 }
