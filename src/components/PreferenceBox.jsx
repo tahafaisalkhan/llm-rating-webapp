@@ -21,7 +21,7 @@ export default function PreferenceBox({
         disabled={locked}
         onClick={() => setSelected(val)}
         className={[
-          "px-6 py-3 rounded-lg border text-xl font-semibold transition",
+          "px-3 py-1.5 rounded-md border text-sm font-medium transition",
           active
             ? "bg-blue-600 text-white border-blue-600"
             : "bg-white text-gray-900 border-gray-300 hover:bg-gray-50",
@@ -42,7 +42,7 @@ export default function PreferenceBox({
         disabled={disabled}
         onClick={() => setStrength(val)}
         className={[
-          "px-4 py-2 rounded-full border text-lg font-medium transition",
+          "px-3 py-1 rounded-full border text-xs font-medium transition",
           active
             ? classes.active
             : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
@@ -58,25 +58,22 @@ export default function PreferenceBox({
   return (
     <div
       className="
-        grid grid-cols-[1fr_auto] grid-rows-[auto_auto]
-        items-start gap-x-6 gap-y-3
+        flex flex-col items-center gap-1
       "
     >
-      {/* Row 1, Col 1: 1 / 2 / Tie */}
-      <div className="flex items-center gap-4">
+      {/* Row 1: buttons + submit inline */}
+      <div className="flex items-center gap-2">
         {prefBtn(1, "1")}
         {prefBtn(2, "2")}
         {prefBtn("tie", "Tie")}
-      </div>
 
-      {/* Col 2 spans both rows: Submit lives here and never moves */}
-      <div className="row-span-2 col-start-2 self-start">
+        {/* Submit stays inline and closer */}
         <button
           type="button"
           onClick={onSubmit}
           disabled={locked || !selected || (selected !== "tie" && !strength)}
           className={[
-            "px-6 py-3 rounded-lg bg-black text-white font-semibold",
+            "px-3 py-1.5 rounded-md bg-black text-white text-sm font-semibold",
             "disabled:opacity-60 disabled:cursor-not-allowed",
           ].join(" ")}
         >
@@ -84,10 +81,10 @@ export default function PreferenceBox({
         </button>
       </div>
 
-      {/* Row 2, Col 1: Strength chips (reserve space so layout never shifts) */}
+      {/* Row 2: Strength chips appear below */}
       <div
         className={[
-          "flex items-center gap-3 min-h-[52px]",
+          "flex items-center gap-2 min-h-[30px]",
           selected === "tie" || !selected ? "invisible" : "visible",
         ].join(" ")}
       >
