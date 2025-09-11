@@ -106,17 +106,23 @@ export default function Home() {
   async function submitPref(p) {
     if (locked[p.comparison]) return;
 
-    const pref = choice[p.comparison]; // 1 | 2 | "tie"
-    const strength = choice[`${p.comparison}:strength`] || null;
+    const sel = choice[p.comparison];                 // 1 | 2 | 'tie'
+    const str = strength?.[p.comparison] || null;     // 'weak'|'moderate'|'strong'|null
 
-    if (pref !== 1 && pref !== 2 && pref !== "tie") {
+    // Require a selection
+    if (sel !== 1 && sel !== 2 && sel !== "tie") {
       alert("Pick 1, 2, or Tie first.");
       return;
     }
-    if (pref !== "tie" && !strength) {
-      alert("How strong? Choose Weak / Moderate / Strong.");
+
+    // Only require strength when 1 or 2 is chosen (NOT for tie)
+    if (sel !== "tie" && !str) {
+      alert("Pick strength (weak / moderate / strong).");
       return;
     }
+
+    // Backend requires: 0 = tie, 1, 2
+    const resultNum = sel === "tie" ? 0 : sel;
 
     try {
       const res = await fetch("/api/preferences", {
@@ -126,9 +132,9 @@ export default function Home() {
           comparison: p.comparison,
           set1Id: p.chatgpt?.id || "",
           set2Id: p.medgemma?.id || "",
-          result: pref,                                 // 1 | 2 | "tie"
-          strength: pref === "tie" ? null : strength,   // omit when tie
-          rater,                                        // per-user submission
+          result: resultNum,                      // 0 | 1 | 2
+          strength: sel === "tie" ? null : str,   // omit/ignore for tie
+          rater,
         }),
       });
 
@@ -146,6 +152,7 @@ export default function Home() {
       alert("Failed: " + (e.message || "Unknown"));
     }
   }
+
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
