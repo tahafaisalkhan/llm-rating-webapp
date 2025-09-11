@@ -3,21 +3,18 @@ import PanelCard from "../components/PanelCard";
 import { getRater, clearRater } from "../utils/auth";
 
 export default function Home() {
-  const rater = getRater(); // USERX from localStorage
+  const rater = getRater();
 
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
   // preference state
-  // choice: { [comparison]: 1 | 2 | 0 }  (0 = tie)
-  const [choice, setChoice] = useState({});
-  // strength: { [comparison]: 'weak'|'moderate'|'strong'|'' }
-  const [strength, setStrength] = useState({});
-  // lock map
-  const [locked, setLocked] = useState({});
+  const [choice, setChoice] = useState({});          // { [comparison]: 1|2|0 }  (0 = tie)
+  const [strength, setStrength] = useState({});      // { [comparison]: 'weak'|'moderate'|'strong'|'' }
+  const [locked, setLocked] = useState({});          // { [comparison]: true }
 
   // rating status for cards
-  const [ratedMap, setRatedMap] = useState({}); // { "chatgpt:<id>": true, "medgemma:<id>": true }
+  const [ratedMap, setRatedMap] = useState({});      // { "chatgpt:<id>": true, "medgemma:<id>": true }
 
   useEffect(() => {
     (async () => {
@@ -44,7 +41,7 @@ export default function Home() {
     const fetches = [];
 
     for (const p of rows) {
-      // preference status per rater (returns result and strength)
+      // preference status per rater
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -62,7 +59,7 @@ export default function Home() {
           .catch(() => {})
       );
 
-      // rating status for each panel per rater
+      // rating status
       if (p.chatgpt?.id) {
         fetches.push(
           fetch(
@@ -109,7 +106,7 @@ export default function Home() {
       return;
     }
 
-    // If 1 or 2, require strength; if tie (0), strength must not be sent.
+    // If 1 or 2, require strength; for tie (0) we omit strength
     let sendStrength = null;
     if (selected === 1 || selected === 2) {
       const s = strength[p.comparison] || "";
@@ -128,9 +125,9 @@ export default function Home() {
           comparison: p.comparison,
           set1Id: p.chatgpt?.id || "",
           set2Id: p.medgemma?.id || "",
-          result: Number(selected),      // 0 | 1 | 2
-          strength: sendStrength,        // null for tie
-          rater,                         // per-user submission
+          result: Number(selected),   // 0 | 1 | 2
+          strength: sendStrength,     // null/omitted for tie
+          rater,
         }),
       });
       if (res.status === 409) {
@@ -191,8 +188,12 @@ export default function Home() {
         const lockedRow = !!locked[p.comparison];
         const selected = choice[p.comparison]; // 0|1|2
 
-        const set1Rated = p.chatgpt?.id ? !!ratedMap[`chatgpt:${p.chatgpt.id}`] : false;
-        const set2Rated = p.medgemma?.id ? !!ratedMap[`medgemma:${p.medgemma.id}`] : false;
+        const set1Rated = p.chatgpt?.id
+          ? !!ratedMap[`chatgpt:${p.chatgpt.id}`]
+          : false;
+        const set2Rated = p.medgemma?.id
+          ? !!ratedMap[`medgemma:${p.medgemma.id}`]
+          : false;
 
         return (
           <div key={p.comparison} className="grid grid-cols-3 gap-4 items-start">
@@ -225,82 +226,84 @@ export default function Home() {
             </div>
 
             {/* Preference controls */}
-            <div className="flex items-center justify-center gap-3 flex-wrap">
-              {/* A/B/Tie buttons */}
-              <div className="flex items-center gap-2">
-                <ButtonPref
-                  label="1"
-                  active={selected === 1}
-                  disabled={lockedRow}
-                  onClick={() => setChoice((m) => ({ ...m, [p.comparison]: 1 }))}
-                />
-                <ButtonPref
-                  label="2"
-                  active={selected === 2}
-                  disabled={lockedRow}
-                  onClick={() => setChoice((m) => ({ ...m, [p.comparison]: 2 }))}
-                />
-                <ButtonPref
-                  label="Tie"
-                  active={selected === 0}
-                  disabled={lockedRow}
-                  onClick={() => {
-                    setChoice((m) => ({ ...m, [p.comparison]: 0 }));
-                    // clear strength when tie is chosen
-                    setStrength((m) => {
-                      const c = { ...m };
-                      delete c[p.comparison];
-                      return c;
-                    });
-                  }}
-                />
-              </div>
-
-              {/* Strength pills: only when 1 or 2 selected */}
-              {(selected === 1 || selected === 2) && (
-                <div className="flex items-center gap-2 text-xs">
-                  <StrengthPill
-                    color="bg-yellow-400"
-                    label="Weak"
-                    value="weak"
-                    name={`strength-${p.comparison}`}
-                    checked={(strength[p.comparison] || "") === "weak"}
+            <div className="flex items-start justify-center gap-4">
+              {/* Left cluster: A/B/Tie row + strength row underneath */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <ButtonPref
+                    label="1"
+                    active={selected === 1}
                     disabled={lockedRow}
-                    onChange={() =>
-                      setStrength((m) => ({ ...m, [p.comparison]: "weak" }))
-                    }
+                    onClick={() => setChoice((m) => ({ ...m, [p.comparison]: 1 }))}
                   />
-                  <StrengthPill
-                    color="bg-orange-500"
-                    label="Moderate"
-                    value="moderate"
-                    name={`strength-${p.comparison}`}
-                    checked={(strength[p.comparison] || "") === "moderate"}
+                  <ButtonPref
+                    label="2"
+                    active={selected === 2}
                     disabled={lockedRow}
-                    onChange={() =>
-                      setStrength((m) => ({ ...m, [p.comparison]: "moderate" }))
-                    }
+                    onClick={() => setChoice((m) => ({ ...m, [p.comparison]: 2 }))}
                   />
-                  <StrengthPill
-                    color="bg-red-600"
-                    label="Strong"
-                    value="strong"
-                    name={`strength-${p.comparison}`}
-                    checked={(strength[p.comparison] || "") === "strong"}
+                  <ButtonPref
+                    label="Tie"
+                    active={selected === 0}
                     disabled={lockedRow}
-                    onChange={() =>
-                      setStrength((m) => ({ ...m, [p.comparison]: "strong" }))
-                    }
+                    onClick={() => {
+                      setChoice((m) => ({ ...m, [p.comparison]: 0 }));
+                      setStrength((m) => {
+                        const c = { ...m };
+                        delete c[p.comparison]; // clear strength if tie
+                        return c;
+                      });
+                    }}
                   />
                 </div>
-              )}
 
-              {/* Submit now sits to the RIGHT */}
+                {(selected === 1 || selected === 2) && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <StrengthPill
+                      color="bg-yellow-400"
+                      label="Weak"
+                      value="weak"
+                      name={`strength-${p.comparison}`}
+                      checked={(strength[p.comparison] || "") === "weak"}
+                      disabled={lockedRow}
+                      onChange={() =>
+                        setStrength((m) => ({ ...m, [p.comparison]: "weak" }))
+                      }
+                    />
+                    <StrengthPill
+                      color="bg-orange-500"
+                      label="Moderate"
+                      value="moderate"
+                      name={`strength-${p.comparison}`}
+                      checked={(strength[p.comparison] || "") === "moderate"}
+                      disabled={lockedRow}
+                      onChange={() =>
+                        setStrength((m) => ({ ...m, [p.comparison]: "moderate" }))
+                      }
+                    />
+                    <StrengthPill
+                      color="bg-red-600"
+                      label="Strong"
+                      value="strong"
+                      name={`strength-${p.comparison}`}
+                      checked={(strength[p.comparison] || "") === "strong"}
+                      disabled={lockedRow}
+                      onChange={() =>
+                        setStrength((m) => ({ ...m, [p.comparison]: "strong" }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Right: submit button stays aligned to the top/right */}
               {lockedRow ? (
-                <span className="text-green-700 font-semibold">✓ Submitted</span>
+                <span className="text-green-700 font-semibold self-start">
+                  ✓ Submitted
+                </span>
               ) : (
                 <button
-                  className="border px-3 py-1 rounded font-semibold bg-black text-white"
+                  className="border px-3 py-1 rounded font-semibold bg-black text-white self-start"
                   onClick={() => submitPref(p)}
                 >
                   Submit
