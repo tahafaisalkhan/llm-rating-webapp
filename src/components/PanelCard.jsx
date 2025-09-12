@@ -1,4 +1,3 @@
-// src/components/PanelCard.jsx
 import { Link } from "react-router-dom";
 
 /**
@@ -6,8 +5,8 @@ import { Link } from "react-router-dom";
  *  - id: string
  *  - datasetid: string
  *  - setLabel: "set1" | "set2"
- *  - rated: boolean
- *  - major?: boolean   // major error flag
+ *  - rated: boolean         // green badge if true (only when not major)
+ *  - major?: boolean        // red state if true (overrides green)
  */
 export default function PanelCard({ id, datasetid, setLabel, rated, major = false }) {
   const href = `/item/${encodeURIComponent(id)}/${setLabel}`;
