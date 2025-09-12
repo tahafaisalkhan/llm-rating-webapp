@@ -5,14 +5,13 @@ import RubricForm from "../components/RubricForm";
 import { getRater } from "../utils/auth";
 
 export default function Detail() {
-  const { id, set } = useParams();
+  const { id, set } = useParams(); // "set1" | "set2"
   const navigate = useNavigate();
 
   const [cg, setCg] = useState(null);
   const [mg, setMg] = useState(null);
   const [err, setErr] = useState("");
   const [already, setAlready] = useState(false);
-  const [initialMajor, setInitialMajor] = useState(false); // NEW
 
   const rater = getRater() || "";
 
@@ -32,13 +31,10 @@ export default function Detail() {
 
         const modelUsed = cgRow ? "chatgpt" : mgRow ? "medgemma" : "unknown";
         const res = await fetch(
-          `/api/ratings/status?modelUsed=${encodeURIComponent(modelUsed)}&modelId=${encodeURIComponent(
-            id
-          )}&rater=${encodeURIComponent(rater)}`
+          `/api/ratings/status?modelUsed=${encodeURIComponent(modelUsed)}&modelId=${encodeURIComponent(id)}&rater=${encodeURIComponent(rater)}`
         );
         const j = res.ok ? await res.json() : { exists: false };
         setAlready(!!j.exists);
-        setInitialMajor(!!j.major_error); // NEW
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load.");
@@ -119,7 +115,6 @@ export default function Detail() {
       <div className="border-t bg-white p-4 shadow-md">
         <RubricForm
           disabledInitial={already}
-          initialMajor={initialMajor}   // NEW
           itemId={id}
           datasetId={datasetId}
           comparison={comparison}

@@ -1,31 +1,32 @@
-// src/components/RubricForm.jsx
 import { useEffect, useMemo, useState } from "react";
 
 /**
  * Props:
  *  - disabledInitial: boolean (already submitted by this rater)
- *  - initialMajor?: boolean  <-- NEW: seed the toggle when the user already submitted
- *  - itemId, datasetId, comparison, modelUsed, rater
+ *  - itemId: string (modelId)
+ *  - datasetId: string
+ *  - comparison: string
+ *  - modelUsed: "chatgpt" | "medgemma"
+ *  - rater: string (USERX)
  */
 export default function RubricForm({
   disabledInitial = false,
-  initialMajor = false,
   itemId,
   datasetId,
   comparison,
   modelUsed,
   rater,
 }) {
+  // 7 axes, default 3
   const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3]);
   const [extra, setExtra] = useState("");
-  const [major, setMajor] = useState(!!initialMajor);
+  const [majorError, setMajorError] = useState(false); // ← NEW
 
   const [saving, setSaving] = useState(false);
   const [locked, setLocked] = useState(!!disabledInitial);
   const [err, setErr] = useState("");
 
   useEffect(() => setLocked(!!disabledInitial), [disabledInitial]);
-  useEffect(() => setMajor(!!initialMajor), [initialMajor]); // keep toggle in sync if page reloads
 
   const setAxis = (i, v) =>
     setScores((arr) => {
@@ -34,15 +35,43 @@ export default function RubricForm({
       return copy;
     });
 
+  // EXACT order requested
   const AXES = useMemo(
     () => [
-      { label: "Medical Accuracy & Completeness", title: "All clinically relevant facts present, correct, not hallucinated (symptoms/history/findings/treatment)." },
-      { label: "Clinical Safety & Handover Utility", title: "Safe to hand over (red-flags preserved; exact meds/labs/vitals; no dangerous omissions)." },
-      { label: "Guideline Alignment & Clinical Reasoning", title: "Diagnosis/management align with guidelines; reasoning consistent with medical logic." },
-      { label: "Language & Terminology Accuracy", title: "Idiomatic Urdu; consistent medical terms; glossary adherence." },
-      { label: "Structure, Flow & Communication", title: "Clear sectioning (S/O/A/P), chronology, speaker turns, explanations, key patient statements, respectful tone." },
-      { label: "Communication, Rapport & Patient Engagement", title: "Clarity of explanations, respectful tone, empathy, participation, concerns addressed, education included." },
-      { label: "Alignment to Source (“traceability”)", title: "Each note sentence traceable to dialogue; unsupported = hallucination/added knowledge." },
+      {
+        label: "Medical Accuracy & Completeness",
+        title:
+          "All clinically relevant facts present, correct, not hallucinated (symptoms/history/findings/treatment).",
+      },
+      {
+        label: "Clinical Safety & Handover Utility",
+        title:
+          "Safe to hand over (red-flags preserved; exact meds/labs/vitals; no dangerous omissions).",
+      },
+      {
+        label: "Guideline Alignment & Clinical Reasoning",
+        title:
+          "Diagnosis/management align with guidelines; reasoning consistent with medical logic.",
+      },
+      {
+        label: "Language & Terminology Accuracy",
+        title: "Idiomatic Urdu; consistent medical terms; glossary adherence.",
+      },
+      {
+        label: "Structure, Flow & Communication",
+        title:
+          "Clear sectioning (S/O/A/P), chronology, speaker turns, explanations, key patient statements, respectful tone.",
+      },
+      {
+        label: "Communication, Rapport & Patient Engagement",
+        title:
+          "Clarity of explanations, respectful tone, empathy, participation, concerns addressed, education included.",
+      },
+      {
+        label: "Alignment to Source (“traceability”)",
+        title:
+          "Each note sentence traceable to dialogue; unsupported = hallucination/added knowledge.",
+      },
     ],
     []
   );
@@ -68,9 +97,9 @@ export default function RubricForm({
           axis5: scores[4],
           axis6: scores[5],
           axis7: scores[6],
-          comments: { extra: extra || "" },
+          comments: { extra: extra || "" }, // only single extra note
         },
-        major_error: !!major, // <-- send toggle
+        major_error: !!majorError, // ← NEW
       };
 
       const res = await fetch("/api/ratings", {
@@ -101,6 +130,7 @@ export default function RubricForm({
     }
   }
 
+  // Likert: keep compact, bring a bit closer to labels (gap-2)
   const Likert = ({ value, onChange, disabled }) => (
     <div className="flex items-center gap-2 text-[13px] select-none">
       {[0, 1, 2, 3, 4, 5].map((n) => (
@@ -121,45 +151,60 @@ export default function RubricForm({
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <div className="font-semibold">Rubric (0–5)</div>
+      {/* Header + right-side switch */}
+      <div className="flex items-center justify-between">
+        <div className="font-semibold">Rubric (0–5)</div>
 
-      {/* Compact/scrollable rubric like before */}
+        {/* Simple toggle; small & unobtrusive */}
+        <label className="flex items-center gap-2 text-sm select-none">
+          <input
+            type="checkbox"
+            className="peer sr-only"
+            checked={majorError}
+            disabled={locked}
+            onChange={(e) => setMajorError(e.target.checked)}
+          />
+          {/* Switch UI */}
+          <span
+            className={[
+              "relative inline-block h-5 w-9 rounded-full transition-colors",
+              locked ? "opacity-60" : "",
+              majorError ? "bg-red-600" : "bg-gray-300",
+            ].join(" ")}
+            aria-hidden="true"
+          >
+            <span
+              className={[
+                "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform",
+                majorError ? "translate-x-4" : "",
+              ].join(" ")}
+            />
+          </span>
+          <span>Major Clinical Error</span>
+        </label>
+      </div>
+
+      {/* Keep compact/scrollable sizing as before */}
       <div className="max-h-56 overflow-y-auto pr-1">
         <div className="space-y-2">
           {AXES.map((ax, i) => (
             <div
               key={ax.label}
-              className="flex items-center justify-between gap-3"
+              className="flex items-center justify-between gap-2"
               title={ax.title}
             >
               <div className="text-sm">{ax.label}</div>
-
-              {/* Likert + Major toggle inline-right to keep the Likert close to labels */}
-              <div className="flex items-center gap-4">
-                <Likert
-                  value={scores[i]}
-                  onChange={(v) => setAxis(i, v)}
-                  disabled={locked}
-                />
-
-                {/* Right-aligned switch */}
-                <label className="flex items-center gap-2 text-xs select-none">
-                  <span className="text-gray-600">Major Clinical Error</span>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    disabled={locked}
-                    checked={major}
-                    onChange={(e) => setMajor(e.target.checked)}
-                  />
-                </label>
-              </div>
+              <Likert
+                value={scores[i]}
+                onChange={(v) => setAxis(i, v)}
+                disabled={locked}
+              />
             </div>
           ))}
         </div>
       </div>
 
-      {/* Extra note */}
+      {/* Only one optional extra note */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm">Extra Comments</div>
         <input
