@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
  *  - datasetid: string
  *  - setLabel: "set1" | "set2"
  *  - rated: boolean
- *  - major?: boolean   // ← NEW: major error flag
+ *  - major?: boolean   // major error flag
  */
 export default function PanelCard({ id, datasetid, setLabel, rated, major = false }) {
   const href = `/item/${encodeURIComponent(id)}/${setLabel}`;
@@ -33,7 +33,7 @@ export default function PanelCard({ id, datasetid, setLabel, rated, major = fals
         </div>
         {major ? (
           <div className="mt-1 text-xs font-semibold text-red-700">
-            ⚠ Major clinical error
+            ⚠ Major Clinical Error
           </div>
         ) : rated ? (
           <div className="mt-1 text-xs font-semibold text-green-700">
