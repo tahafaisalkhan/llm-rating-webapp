@@ -1,9 +1,9 @@
+// src/pages/Home.jsx
 import { useEffect, useState, useMemo } from "react";
 import PanelCard from "../components/PanelCard";
 import PreferenceBox from "../components/PreferenceBox";
 import { getRater, clearRater } from "../utils/auth";
 
-// Simple, deterministic 32-bit hash for strings
 function hash32(str) {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
@@ -22,18 +22,13 @@ export default function Home() {
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  // preference UI state per comparison
-  // selected: 0 | 1 | 2  (0 = tie, 1 = left, 2 = right)
   const [selected, setSelected] = useState({});
   const [strength, setStrength] = useState({});
-  // track whether a submission exists (for the "Resubmit" label)
   const [submittedMap, setSubmittedMap] = useState({});
 
-  // rating status for cards
-  // ratedMap: { "gemma:<id>": true, "medgemma:<id>": true }
-  // majorMap: { "gemma:<id>": true, "medgemma:<id>": true }
   const [ratedMap, setRatedMap] = useState({});
   const [majorMap, setMajorMap] = useState({});
+  const [scoreMap, setScoreMap] = useState({}); // ← NEW: panel score totals
 
   useEffect(() => {
     (async () => {
@@ -55,13 +50,13 @@ export default function Home() {
   async function checkStatuses(rows) {
     const ratedEntries = {};
     const majorEntries = {};
+    const scoreEntries = {};   // ← NEW
     const submitted = {};
     const selEntries = {};
     const strEntries = {};
     const fetches = [];
 
     for (const p of rows) {
-      // --- preference status per rater
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -82,7 +77,6 @@ export default function Home() {
           .catch(() => {})
       );
 
-      // --- rating status for each panel (+ major flag) per rater
       const handleRating = (key, modelUsed, modelId) =>
         fetch(
           `/api/ratings/status?modelUsed=${encodeURIComponent(
@@ -96,36 +90,28 @@ export default function Home() {
             if (j?.exists) {
               ratedEntries[key] = true;
               if (j.major_error) majorEntries[key] = true;
+              if (typeof j.total === "number") scoreEntries[key] = j.total; // ← NEW
             }
           })
           .catch(() => {});
 
       if (p.chatgpt?.id) {
-        // LEFT source item (historically chatgpt.json) labeled GEMMA in backend
-        fetches.push(
-          handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id)
-        );
+        fetches.push(handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id));
       }
       if (p.medgemma?.id) {
-        fetches.push(
-          handleRating(
-            `medgemma:${p.medgemma.id}`,
-            "medgemma",
-            p.medgemma.id
-          )
-        );
+        fetches.push(handleRating(`medgemma:${p.medgemma.id}`, "medgemma", p.medgemma.id));
       }
     }
 
     await Promise.all(fetches);
     setRatedMap(ratedEntries);
     setMajorMap(majorEntries);
+    setScoreMap(scoreEntries);      // ← NEW
     setSubmittedMap(submitted);
     setSelected((m) => ({ ...m, ...selEntries }));
     setStrength((m) => ({ ...m, ...strEntries }));
   }
 
-  // Deterministic flip for left/right per comparison
   const viewPairs = useMemo(() => {
     return pairs.map((p) => {
       const flip = ((hash32(String(p.comparison)) & 1) === 1);
@@ -148,7 +134,7 @@ export default function Home() {
   async function submitPref(vp) {
     const comp = vp.comparison;
 
-    const resVal = selected[comp]; // 0 (tie), 1 (left), 2 (right)
+    const resVal = selected[comp];
     const strVal = resVal === 0 ? null : (strength[comp] ?? null);
 
     if (resVal === undefined) {
@@ -161,21 +147,20 @@ export default function Home() {
     }
 
     try {
-      const r = await fetch("/api/preferences", {
+      await fetch("/api/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           comparison: comp,
-          set1Id: vp.left?.id || "",   // set1 = LEFT (deterministic)
-          set2Id: vp.right?.id || "",  // set2 = RIGHT
-          result: resVal,              // 0,1,2
-          strength: strVal,            // null for tie
+          set1Id: vp.left?.id || "",
+          set2Id: vp.right?.id || "",
+          result: resVal,
+          strength: strVal,
           rater,
         }),
       });
 
-      // On success (or 409 if your backend still blocks dupes),
-      // re-fetch statuses so color and label stay in sync.
+      // Refresh so button text and panel colors/scores stay correct
       await checkStatuses(pairs);
       alert("Preference submitted.");
     } catch (e) {
@@ -186,7 +171,6 @@ export default function Home() {
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
-      {/* Top bar */}
       <div className="flex items-center justify-between mb-2">
         <a
           href="/rubric"
@@ -215,7 +199,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* column headers */}
       <div className="grid grid-cols-3 gap-4 font-semibold text-center sticky top-0 bg-gray-50 py-2">
         <div>Set 1</div>
         <div>Set 2</div>
@@ -236,12 +219,14 @@ export default function Home() {
         const leftMajor = leftKey ? !!majorMap[leftKey] : false;
         const rightMajor = rightKey ? !!majorMap[rightKey] : false;
 
+        const leftScore = leftKey ? scoreMap[leftKey] : undefined;   // ← NEW
+        const rightScore = rightKey ? scoreMap[rightKey] : undefined; // ← NEW
+
         const sel = selected[comp];
         const str = strength[comp];
 
         return (
           <div key={comp} className="grid grid-cols-3 gap-4 items-start">
-            {/* LEFT (Set 1) */}
             <div>
               {vp.left ? (
                 <PanelCard
@@ -250,13 +235,13 @@ export default function Home() {
                   setLabel="set1"
                   rated={leftRated && !leftMajor}
                   major={leftMajor}
+                  score={leftScore}     // ← NEW
                 />
               ) : (
                 <Blank label="No Set 1 item" />
               )}
             </div>
 
-            {/* RIGHT (Set 2) */}
             <div>
               {vp.right ? (
                 <PanelCard
@@ -265,25 +250,23 @@ export default function Home() {
                   setLabel="set2"
                   rated={rightRated && !rightMajor}
                   major={rightMajor}
+                  score={rightScore}    // ← NEW
                 />
               ) : (
                 <Blank label="No Set 2 item" />
               )}
             </div>
 
-            {/* Preference controls */}
             <div className="flex items-center justify-center">
               <PreferenceBox
-                submitted={!!submittedMap[comp]}  // label: Submit → Resubmit
+                submitted={!!submittedMap[comp]}
                 selected={sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined}
                 setSelected={(val) => {
-                  const normalized = val === "tie" ? 0 : val; // map to 0/1/2
+                  const normalized = val === "tie" ? 0 : val;
                   setSelected((m) => ({ ...m, [comp]: normalized }));
                 }}
                 strength={str || null}
-                setStrength={(val) =>
-                  setStrength((m) => ({ ...m, [comp]: val }))
-                }
+                setStrength={(val) => setStrength((m) => ({ ...m, [comp]: val }))}
                 onSubmit={() => submitPref(vp)}
               />
             </div>
