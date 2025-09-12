@@ -1,21 +1,24 @@
+// src/pages/Home.jsx
 import { useEffect, useState } from "react";
 import PanelCard from "../components/PanelCard";
+import PreferenceBox from "../components/PreferenceBox";
 import { getRater, clearRater } from "../utils/auth";
 
 export default function Home() {
-  const rater = getRater(); // USERX from localStorage
+  const rater = getRater(); // USERX
 
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  // preference state (per-comparison)
-  // selected: 1 | 2 | 0 (tie)
-  const [choice, setChoice] = useState({});         // { [comparison]: 0|1|2 }
-  const [strength, setStrength] = useState({});     // { [comparison]: "weak"|"moderate"|"strong"|null }
-  const [locked, setLocked] = useState({});         // { [comparison]: true }
+  // preference UI state per comparison
+  // selected: 0 | 1 | 2  (0 = tie, 1 = set1/gemma, 2 = set2/medgemma)
+  const [selected, setSelected] = useState({}); // { [comparison]: 0|1|2 }
+  const [strength, setStrength] = useState({}); // { [comparison]: "weak"|"moderate"|"strong"|null }
+  const [locked, setLocked] = useState({});     // { [comparison]: true }
 
-  // rating status & major flag for cards (per-item)
-  // keys like "chatgpt:<id>" / "medgemma:<id>"
+  // rating status for cards
+  // ratedMap: { "gemma:<id>": true, "medgemma:<id>": true }
+  // majorMap: { "gemma:<id>": true, "medgemma:<id>": true }
   const [ratedMap, setRatedMap] = useState({});
   const [majorMap, setMajorMap] = useState({});
 
@@ -40,12 +43,12 @@ export default function Home() {
     const ratedEntries = {};
     const majorEntries = {};
     const lockedEntries = {};
-    const choiceEntries = {};
-    const strengthEntries = {};
+    const selEntries = {};
+    const strEntries = {};
     const fetches = [];
 
     for (const p of rows) {
-      // preference status per rater
+      // --- preference status per rater
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -57,16 +60,16 @@ export default function Home() {
             if (j?.exists) {
               lockedEntries[p.comparison] = true;
               if ([0, 1, 2].includes(Number(j.result))) {
-                choiceEntries[p.comparison] = Number(j.result);
+                selEntries[p.comparison] = Number(j.result);
               }
-              strengthEntries[p.comparison] =
-                j.result === 0 ? null : (j.strength ?? null);
+              strEntries[p.comparison] =
+                Number(j.result) === 0 ? null : (j.strength ?? null);
             }
           })
           .catch(() => {})
       );
 
-      // rating status for each panel per rater (+ major flag)
+      // --- rating status for each panel (+ major flag) per rater
       const handleRating = (key, modelUsed, modelId) =>
         fetch(
           `/api/ratings/status?modelUsed=${encodeURIComponent(
@@ -85,13 +88,18 @@ export default function Home() {
           .catch(() => {});
 
       if (p.chatgpt?.id) {
+        // LEFT column is Gemma (backend label), even though file name is chatgpt.json
         fetches.push(
-          handleRating(`chatgpt:${p.chatgpt.id}`, "chatgpt", p.chatgpt.id)
+          handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id)
         );
       }
       if (p.medgemma?.id) {
         fetches.push(
-          handleRating(`medgemma:${p.medgemma.id}`, "medgemma", p.medgemma.id)
+          handleRating(
+            `medgemma:${p.medgemma.id}`,
+            "medgemma",
+            p.medgemma.id
+          )
         );
       }
     }
@@ -100,42 +108,46 @@ export default function Home() {
     setRatedMap(ratedEntries);
     setMajorMap(majorEntries);
     setLocked((m) => ({ ...m, ...lockedEntries }));
-    setChoice((m) => ({ ...m, ...choiceEntries }));
-    setStrength((m) => ({ ...m, ...strengthEntries }));
+    setSelected((m) => ({ ...m, ...selEntries }));
+    setStrength((m) => ({ ...m, ...strEntries }));
   }
 
   async function submitPref(p) {
     if (locked[p.comparison]) return;
 
-    const selected = choice[p.comparison]; // 0|1|2
-    if (![0, 1, 2].includes(Number(selected))) {
+    // 0 (tie), 1 (set1/gemma), 2 (set2/medgemma)
+    const resVal = selected[p.comparison];
+    const strVal =
+      resVal === 0 ? null : (strength[p.comparison] ?? null);
+
+    if (resVal === undefined) {
       alert("Pick 1, 2, or Tie first.");
       return;
     }
-    const s =
-      selected === 0
-        ? null
-        : strength[p.comparison] ?? null; // only when not tie
+    if (resVal !== 0 && !strVal) {
+      alert("Select preference strength (Weak/Moderate/Strong).");
+      return;
+    }
 
     try {
-      const res = await fetch("/api/preferences", {
+      const r = await fetch("/api/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           comparison: p.comparison,
           set1Id: p.chatgpt?.id || "",
           set2Id: p.medgemma?.id || "",
-          result: Number(selected), // 0,1,2
-          strength: s,
+          result: resVal,          // 0,1,2
+          strength: strVal,        // null for tie
           rater,
         }),
       });
-      if (res.status === 409) {
+      if (r.status === 409) {
         setLocked((m) => ({ ...m, [p.comparison]: true }));
         alert("Already submitted for this comparison.");
         return;
       }
-      if (!res.ok) throw new Error(await res.text());
+      if (!r.ok) throw new Error(await r.text());
       setLocked((m) => ({ ...m, [p.comparison]: true }));
       alert("Preference submitted.");
     } catch (e) {
@@ -144,44 +156,9 @@ export default function Home() {
     }
   }
 
-  const PrefButton = ({ active, disabled, onClick, children }) => (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={[
-        "px-3 py-1.5 rounded-md border text-sm font-medium transition",
-        active
-          ? "bg-blue-600 text-white border-blue-600"
-          : "bg-white text-gray-900 border-gray-300 hover:bg-gray-50",
-        disabled ? "opacity-60 cursor-not-allowed" : "",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-
-  const StrengthChip = ({ active, disabled, onClick, palette, children }) => (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={[
-        "px-3 py-1 rounded-full border text-xs font-medium transition",
-        active
-          ? palette
-          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
-        disabled ? "opacity-60 cursor-not-allowed" : "",
-      ].join(" ")}
-      title={children}
-    >
-      {children}
-    </button>
-  );
-
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
-      {/* Top bar: rubric left, centered title, user & logout right */}
+      {/* Top bar */}
       <div className="flex items-center justify-between mb-2">
         <a
           href="/rubric"
@@ -220,7 +197,8 @@ export default function Home() {
       {err && <div className="text-sm text-red-700">{err}</div>}
 
       {pairs.map((p) => {
-        const set1Key = p.chatgpt?.id ? `chatgpt:${p.chatgpt.id}` : null;
+        // keys for maps (backend labels)
+        const set1Key = p.chatgpt?.id ? `gemma:${p.chatgpt.id}` : null;
         const set2Key = p.medgemma?.id ? `medgemma:${p.medgemma.id}` : null;
 
         const set1Rated = set1Key ? !!ratedMap[set1Key] : false;
@@ -229,24 +207,21 @@ export default function Home() {
         const set1Major = set1Key ? !!majorMap[set1Key] : false;
         const set2Major = set2Key ? !!majorMap[set2Key] : false;
 
-        const selected = choice[p.comparison];          // 0|1|2|undefined
-        const selStrength = strength[p.comparison] || null;
-
-        const lockedRow = !!locked[p.comparison];
-        const disableStrength = lockedRow || !selected || selected === 0;
+        const comp = p.comparison;
+        const sel = selected[comp];
+        const str = strength[comp];
+        const isLocked = !!locked[comp];
 
         return (
           <div key={p.comparison} className="grid grid-cols-3 gap-4 items-start">
-            {/* Set 1 card */}
+            {/* Set 1 (Gemma) */}
             <div>
               {p.chatgpt ? (
                 <PanelCard
                   id={p.chatgpt.id}
                   datasetid={p.chatgpt.datasetid}
                   setLabel="set1"
-                  // green only if not major
-                  rated={set1Major ? false : set1Rated}
-                  // red priority
+                  rated={set1Rated && !set1Major}
                   major={set1Major}
                 />
               ) : (
@@ -254,14 +229,14 @@ export default function Home() {
               )}
             </div>
 
-            {/* Set 2 card */}
+            {/* Set 2 (MedGemma) */}
             <div>
               {p.medgemma ? (
                 <PanelCard
                   id={p.medgemma.id}
                   datasetid={p.medgemma.datasetid}
                   setLabel="set2"
-                  rated={set2Major ? false : set2Rated}
+                  rated={set2Rated && !set2Major}
                   major={set2Major}
                 />
               ) : (
@@ -269,94 +244,23 @@ export default function Home() {
               )}
             </div>
 
-            {/* Preference controls */}
-            <div className="flex flex-col items-center gap-1">
-              {/* Row 1: 1 / 2 / Tie + Submit on the right (inline) */}
-              <div className="flex items-center gap-2">
-                <PrefButton
-                  active={selected === 1}
-                  disabled={lockedRow}
-                  onClick={() =>
-                    setChoice((m) => ({ ...m, [p.comparison]: 1 }))
-                  }
-                >
-                  1
-                </PrefButton>
-                <PrefButton
-                  active={selected === 2}
-                  disabled={lockedRow}
-                  onClick={() =>
-                    setChoice((m) => ({ ...m, [p.comparison]: 2 }))
-                  }
-                >
-                  2
-                </PrefButton>
-                <PrefButton
-                  active={selected === 0}
-                  disabled={lockedRow}
-                  onClick={() => {
-                    setChoice((m) => ({ ...m, [p.comparison]: 0 }));
-                    setStrength((m) => ({ ...m, [p.comparison]: null }));
-                  }}
-                >
-                  Tie
-                </PrefButton>
-
-                {lockedRow ? (
-                  <span className="text-green-700 font-semibold">
-                    ✓ Submitted
-                  </span>
-                ) : (
-                  <button
-                    className="px-3 py-1.5 rounded-md bg-black text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-                    disabled={
-                      lockedRow || !selected || (selected !== 0 && !selStrength)
-                    }
-                    onClick={() => submitPref(p)}
-                  >
-                    Submit
-                  </button>
-                )}
-              </div>
-
-              {/* Row 2: Strength chips appear below (reserve height to avoid layout jump) */}
-              <div
-                className={[
-                  "flex items-center gap-2 min-h-[30px]",
-                  selected === 0 || !selected ? "invisible" : "visible",
-                ].join(" ")}
-              >
-                <StrengthChip
-                  active={selStrength === "weak"}
-                  disabled={disableStrength}
-                  onClick={() =>
-                    setStrength((m) => ({ ...m, [p.comparison]: "weak" }))
-                  }
-                  palette="bg-amber-100 text-amber-800 border-amber-300"
-                >
-                  Weak
-                </StrengthChip>
-                <StrengthChip
-                  active={selStrength === "moderate"}
-                  disabled={disableStrength}
-                  onClick={() =>
-                    setStrength((m) => ({ ...m, [p.comparison]: "moderate" }))
-                  }
-                  palette="bg-blue-100 text-blue-800 border-blue-300"
-                >
-                  Moderate
-                </StrengthChip>
-                <StrengthChip
-                  active={selStrength === "strong"}
-                  disabled={disableStrength}
-                  onClick={() =>
-                    setStrength((m) => ({ ...m, [p.comparison]: "strong" }))
-                  }
-                  palette="bg-red-600 text-white border-red-700"
-                >
-                  Strong
-                </StrengthChip>
-              </div>
+            {/* Preference controls (keeps your established design via PreferenceBox) */}
+            <div className="flex items-center justify-center">
+              <PreferenceBox
+                locked={isLocked}
+                selected={sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined}
+                setSelected={(val) => {
+                  // normalize to 0/1/2 in state
+                  const normalized = val === "tie" ? 0 : val;
+                  setSelected((m) => ({ ...m, [comp]: normalized }));
+                  // if choosing 1/2 and no strength yet, leave strength as-is (user will pick)
+                }}
+                strength={str || null}
+                setStrength={(val) =>
+                  setStrength((m) => ({ ...m, [comp]: val }))
+                }
+                onSubmit={() => submitPref(p)}
+              />
             </div>
           </div>
         );

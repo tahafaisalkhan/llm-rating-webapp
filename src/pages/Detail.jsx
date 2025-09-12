@@ -1,4 +1,3 @@
-// src/pages/Detail.jsx
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RubricForm from "../components/RubricForm";
@@ -8,11 +7,10 @@ export default function Detail() {
   const { id, set } = useParams(); // "set1" | "set2"
   const navigate = useNavigate();
 
-  const [cg, setCg] = useState(null);
+  const [cg, setCg] = useState(null); // still loading from chatgpt.json (Gemma content)
   const [mg, setMg] = useState(null);
   const [err, setErr] = useState("");
   const [already, setAlready] = useState(false);
-  const [initialMajor, setInitialMajor] = useState(false); // ← NEW
 
   const rater = getRater() || "";
 
@@ -20,7 +18,7 @@ export default function Detail() {
     (async () => {
       try {
         const [cgRes, mgRes] = await Promise.all([
-          fetch("/data/chatgpt.json"),
+          fetch("/data/chatgpt.json"),   // keep filename
           fetch("/data/medgemma.json"),
         ]);
         if (!cgRes.ok || !mgRes.ok) throw new Error("Missing JSON (run npm run build:data)");
@@ -30,13 +28,13 @@ export default function Detail() {
         setCg(cgRow);
         setMg(mgRow);
 
-        const modelUsed = cgRow ? "chatgpt" : mgRow ? "medgemma" : "unknown";
+        // backend wants gemma/medgemma labels
+        const modelUsed = cgRow ? "gemma" : mgRow ? "medgemma" : "unknown";
         const res = await fetch(
           `/api/ratings/status?modelUsed=${encodeURIComponent(modelUsed)}&modelId=${encodeURIComponent(id)}&rater=${encodeURIComponent(rater)}`
         );
         const j = res.ok ? await res.json() : { exists: false };
         setAlready(!!j.exists);
-        setInitialMajor(!!j.major_error); // ← set toggle state if exists
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load.");
@@ -44,7 +42,7 @@ export default function Detail() {
     })();
   }, [id, rater]);
 
-  const modelUsed = cg ? "chatgpt" : mg ? "medgemma" : "unknown";
+  const modelUsed = cg ? "gemma" : mg ? "medgemma" : "unknown";
   const comparison = cg?.comparison || mg?.comparison || "";
   const datasetId  = cg?.datasetid || mg?.datasetid || "";
 
@@ -120,9 +118,8 @@ export default function Detail() {
           itemId={id}
           datasetId={datasetId}
           comparison={comparison}
-          modelUsed={modelUsed}
+          modelUsed={modelUsed}   // ← now gemma|medgemma
           rater={rater}
-          initialMajorError={initialMajor} // ← pass toggle initial state
         />
       </div>
     </div>
