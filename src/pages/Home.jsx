@@ -1,10 +1,9 @@
-// src/pages/Home.jsx
 import { useEffect, useState, useMemo } from "react";
 import PanelCard from "../components/PanelCard";
 import PreferenceBox from "../components/PreferenceBox";
 import { getRater, clearRater } from "../utils/auth";
 
-// Deterministic hash for layout flipping (unchanged)
+// Simple, deterministic 32-bit hash for strings
 function hash32(str) {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
@@ -23,9 +22,16 @@ export default function Home() {
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  const [selectedMap, setSelectedMap] = useState({}); // { [comparison]: 0|1|2 }
-  const [strengthMap, setStrengthMap] = useState({}); // { [comparison]: "weak"|"moderate"|"strong"|null }
+  // preference UI state per comparison
+  // selected: 0 | 1 | 2  (0 = tie, 1 = left, 2 = right)
+  const [selected, setSelected] = useState({});
+  const [strength, setStrength] = useState({});
+  // track whether a submission exists (for the "Resubmit" label)
+  const [submittedMap, setSubmittedMap] = useState({});
 
+  // rating status for cards
+  // ratedMap: { "gemma:<id>": true, "medgemma:<id>": true }
+  // majorMap: { "gemma:<id>": true, "medgemma:<id>": true }
   const [ratedMap, setRatedMap] = useState({});
   const [majorMap, setMajorMap] = useState({});
 
@@ -37,7 +43,7 @@ export default function Home() {
         const rows = await res.json();
         const arr = Array.isArray(rows) ? rows : [];
         setPairs(arr);
-        await refreshStatuses(arr);
+        await checkStatuses(arr);
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load paired data.");
@@ -46,15 +52,16 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function refreshStatuses(rows) {
+  async function checkStatuses(rows) {
     const ratedEntries = {};
     const majorEntries = {};
-    const choiceEntries = {};
-    const strengthEntries = {};
+    const submitted = {};
+    const selEntries = {};
+    const strEntries = {};
     const fetches = [];
 
     for (const p of rows) {
-      // Prefill previous choice but DO NOT lock
+      // --- preference status per rater
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -64,17 +71,19 @@ export default function Home() {
           .then((r) => (r.ok ? r.json() : { exists: false }))
           .then((j) => {
             if (j?.exists) {
+              submitted[p.comparison] = true;
               if ([0, 1, 2].includes(Number(j.result))) {
-                choiceEntries[p.comparison] = Number(j.result);
+                selEntries[p.comparison] = Number(j.result);
               }
-              strengthEntries[p.comparison] =
+              strEntries[p.comparison] =
                 Number(j.result) === 0 ? null : (j.strength ?? null);
             }
           })
           .catch(() => {})
       );
 
-      const pull = (key, modelUsed, modelId) =>
+      // --- rating status for each panel (+ major flag) per rater
+      const handleRating = (key, modelUsed, modelId) =>
         fetch(
           `/api/ratings/status?modelUsed=${encodeURIComponent(
             modelUsed
@@ -91,39 +100,62 @@ export default function Home() {
           })
           .catch(() => {});
 
-      if (p.chatgpt?.id) fetches.push(pull(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id));
-      if (p.medgemma?.id) fetches.push(pull(`medgemma:${p.medgemma.id}`, "medgemma", p.medgemma.id));
+      if (p.chatgpt?.id) {
+        // LEFT source item (historically chatgpt.json) labeled GEMMA in backend
+        fetches.push(
+          handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id)
+        );
+      }
+      if (p.medgemma?.id) {
+        fetches.push(
+          handleRating(
+            `medgemma:${p.medgemma.id}`,
+            "medgemma",
+            p.medgemma.id
+          )
+        );
+      }
     }
 
     await Promise.all(fetches);
     setRatedMap(ratedEntries);
     setMajorMap(majorEntries);
-    setSelectedMap((m) => ({ ...m, ...choiceEntries }));
-    setStrengthMap((m) => ({ ...m, ...strengthEntries }));
+    setSubmittedMap(submitted);
+    setSelected((m) => ({ ...m, ...selEntries }));
+    setStrength((m) => ({ ...m, ...strEntries }));
   }
 
-  // Deterministic left/right
+  // Deterministic flip for left/right per comparison
   const viewPairs = useMemo(() => {
     return pairs.map((p) => {
       const flip = ((hash32(String(p.comparison)) & 1) === 1);
       const left = flip ? p.medgemma : p.chatgpt;
       const right = flip ? p.chatgpt : p.medgemma;
+
       const leftModelUsed = flip ? "medgemma" : "gemma";
       const rightModelUsed = flip ? "gemma" : "medgemma";
-      return { comparison: p.comparison, left, right, leftModelUsed, rightModelUsed };
+
+      return {
+        comparison: p.comparison,
+        left,
+        right,
+        leftModelUsed,
+        rightModelUsed,
+      };
     });
   }, [pairs]);
 
   async function submitPref(vp) {
     const comp = vp.comparison;
-    const resVal = selectedMap[comp]; // 0,1,2
-    const s = resVal === 0 ? null : (strengthMap[comp] ?? null);
+
+    const resVal = selected[comp]; // 0 (tie), 1 (left), 2 (right)
+    const strVal = resVal === 0 ? null : (strength[comp] ?? null);
 
     if (resVal === undefined) {
       alert("Pick 1, 2, or Tie first.");
       return;
     }
-    if (resVal !== 0 && !s) {
+    if (resVal !== 0 && !strVal) {
       alert("Select preference strength (Weak/Moderate/Strong).");
       return;
     }
@@ -134,16 +166,18 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           comparison: comp,
-          set1Id: vp.left?.id || "",
-          set2Id: vp.right?.id || "",
-          result: resVal,
-          strength: s,
+          set1Id: vp.left?.id || "",   // set1 = LEFT (deterministic)
+          set2Id: vp.right?.id || "",  // set2 = RIGHT
+          result: resVal,              // 0,1,2
+          strength: strVal,            // null for tie
           rater,
         }),
       });
-      if (!r.ok) throw new Error(await r.text());
-      alert("Saved. Previous preference (if any) was replaced.");
-      await refreshStatuses([vp]); // refresh the one row
+
+      // On success (or 409 if your backend still blocks dupes),
+      // re-fetch statuses so color and label stay in sync.
+      await checkStatuses(pairs);
+      alert("Preference submitted.");
     } catch (e) {
       console.error(e);
       alert("Failed: " + (e.message || "Unknown"));
@@ -152,7 +186,7 @@ export default function Home() {
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
-      {/* Header */}
+      {/* Top bar */}
       <div className="flex items-center justify-between mb-2">
         <a
           href="/rubric"
@@ -202,8 +236,8 @@ export default function Home() {
         const leftMajor = leftKey ? !!majorMap[leftKey] : false;
         const rightMajor = rightKey ? !!majorMap[rightKey] : false;
 
-        const sel = selectedMap[comp];
-        const str = strengthMap[comp] ?? null;
+        const sel = selected[comp];
+        const str = strength[comp];
 
         return (
           <div key={comp} className="grid grid-cols-3 gap-4 items-start">
@@ -237,18 +271,18 @@ export default function Home() {
               )}
             </div>
 
-            {/* Preference controls — same design; always enabled */}
+            {/* Preference controls */}
             <div className="flex items-center justify-center">
               <PreferenceBox
-                locked={false}
+                submitted={!!submittedMap[comp]}  // label: Submit → Resubmit
                 selected={sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined}
                 setSelected={(val) => {
-                  const normalized = val === "tie" ? 0 : val;
-                  setSelectedMap((m) => ({ ...m, [comp]: normalized }));
+                  const normalized = val === "tie" ? 0 : val; // map to 0/1/2
+                  setSelected((m) => ({ ...m, [comp]: normalized }));
                 }}
-                strength={str}
+                strength={str || null}
                 setStrength={(val) =>
-                  setStrengthMap((m) => ({ ...m, [comp]: val }))
+                  setStrength((m) => ({ ...m, [comp]: val }))
                 }
                 onSubmit={() => submitPref(vp)}
               />

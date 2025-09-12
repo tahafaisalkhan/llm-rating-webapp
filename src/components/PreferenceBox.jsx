@@ -1,10 +1,12 @@
 import React from "react";
 
 export default function PreferenceBox({
-  locked,
-  selected,   // 1 | 2 | "tie" | undefined
+  // NOTE: We now use `submitted` only to decide the button label.
+  // It does NOT disable the controls anymore (so resubmission stays allowed).
+  submitted,           // boolean (has a prior submission)
+  selected,            // 1 | 2 | "tie" | undefined
   setSelected,
-  strength,   // "weak" | "moderate" | "strong" | null
+  strength,            // "weak" | "moderate" | "strong" | null
   setStrength,
   onSubmit,
 }) {
@@ -45,6 +47,7 @@ export default function PreferenceBox({
             : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
           disabled ? "opacity-60 cursor-not-allowed" : "",
         ].join(" ")}
+        title={label}
       >
         {label}
       </button>
@@ -53,7 +56,7 @@ export default function PreferenceBox({
 
   return (
     <div className="flex flex-col items-center gap-1">
-      {/* Row 1: preference + submit */}
+      {/* Row 1: preference + submit (inline) */}
       <div className="flex items-center gap-2">
         {prefBtn(1, "1")}
         {prefBtn(2, "2")}
@@ -65,11 +68,11 @@ export default function PreferenceBox({
           disabled={!selected || (selected !== "tie" && !strength)}
           className="px-3 py-1.5 rounded-md bg-black text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {locked ? "Resubmit" : "Submit"}
+          {submitted ? "Resubmit" : "Submit"}
         </button>
       </div>
 
-      {/* Row 2: strength chips */}
+      {/* Row 2: strength chips (appear below; hidden for tie/no choice) */}
       <div
         className={[
           "flex items-center gap-2 min-h-[30px]",
