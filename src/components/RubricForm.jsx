@@ -1,8 +1,17 @@
-// src/components/RubricForm.jsx
 import { useEffect, useMemo, useState } from "react";
 
+/**
+ * Props:
+ *  - disabledInitial: boolean
+ *  - itemId: string
+ *  - datasetId: string
+ *  - comparison: string
+ *  - modelUsed: "gemma" | "medgemma"
+ *  - rater: string
+ *  - initialMajorError?: boolean
+ */
 export default function RubricForm({
-  disabledInitial = false,   // kept for compatibility, but we won’t lock
+  disabledInitial = false,
   itemId,
   datasetId,
   comparison,
@@ -10,14 +19,16 @@ export default function RubricForm({
   rater,
   initialMajorError = false,
 }) {
+  // 7 axes, default 3
   const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3]);
   const [extra, setExtra] = useState("");
   const [majorError, setMajorError] = useState(!!initialMajorError);
 
   const [saving, setSaving] = useState(false);
-  const [locked, setLocked] = useState(false); // ← allow resubmission
+  const [locked, setLocked] = useState(!!disabledInitial);
+  const [err, setErr] = useState("");
 
-  useEffect(() => setLocked(false), [disabledInitial]);
+  useEffect(() => setLocked(!!disabledInitial), [disabledInitial]);
   useEffect(() => setMajorError(!!initialMajorError), [initialMajorError]);
 
   const setAxis = (i, v) =>
@@ -76,16 +87,15 @@ export default function RubricForm({
         throw new Error(text || "Server error");
       }
 
+      setLocked(true);
       setSaving(false);
-      alert("Saved. Previous rating (if any) was replaced.");
+      alert("Rating submitted. Thank you!");
     } catch (e2) {
       console.error(e2);
       setErr(e2.message || "Failed to submit.");
       setSaving(false);
     }
   }
-
-  const [err, setErr] = useState("");
 
   const Likert = ({ value, onChange, disabled }) => (
     <div className="flex items-center gap-2 text-[13px] select-none">
@@ -107,24 +117,21 @@ export default function RubricForm({
 
   return (
     <form onSubmit={submit} className="space-y-3">
+      {/* Header + toggle */}
       <div className="flex items-center justify-between">
         <div className="font-semibold">Rubric (0–5)</div>
-
         <label className="flex items-center gap-2 text-sm select-none">
           <input
             type="checkbox"
             className="peer sr-only"
             checked={majorError}
-            disabled={locked}
             onChange={(e) => setMajorError(e.target.checked)}
           />
           <span
             className={[
               "relative inline-block h-5 w-9 rounded-full transition-colors",
-              locked ? "opacity-60" : "",
               majorError ? "bg-red-600" : "bg-gray-300",
             ].join(" ")}
-            aria-hidden="true"
           >
             <span
               className={[
@@ -142,7 +149,7 @@ export default function RubricForm({
           {AXES.map((ax, i) => (
             <div key={ax.label} className="flex items-center justify-between gap-2" title={ax.title}>
               <div className="text-sm">{ax.label}</div>
-              <Likert value={scores[i]} onChange={(v) => setAxis(i, v)} disabled={locked} />
+              <Likert value={scores[i]} onChange={(v) => setAxis(i, v)} disabled={false} />
             </div>
           ))}
         </div>
@@ -154,7 +161,6 @@ export default function RubricForm({
           type="text"
           placeholder="(optional) brief note"
           className="border rounded px-2 py-1 text-xs w-72"
-          disabled={locked}
           value={extra}
           onChange={(e) => setExtra(e.target.value)}
         />
@@ -167,7 +173,7 @@ export default function RubricForm({
         className="bg-black text-white rounded px-4 py-2 font-semibold disabled:opacity-60"
         disabled={saving}
       >
-        {saving ? "Submitting…" : "Submit"}
+        {saving ? "Submitting…" : locked ? "Resubmit" : "Submit"}
       </button>
     </form>
   );

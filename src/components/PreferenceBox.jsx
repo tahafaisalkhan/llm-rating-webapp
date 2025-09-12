@@ -1,11 +1,10 @@
-// src/components/PreferenceBox.jsx
 import React from "react";
 
 export default function PreferenceBox({
   locked,
-  selected,            // 1 | 2 | "tie" | undefined
+  selected,   // 1 | 2 | "tie" | undefined
   setSelected,
-  strength,            // "weak" | "moderate" | "strong" | null
+  strength,   // "weak" | "moderate" | "strong" | null
   setStrength,
   onSubmit,
 }) {
@@ -18,14 +17,12 @@ export default function PreferenceBox({
     return (
       <button
         type="button"
-        disabled={locked}
         onClick={() => setSelected(val)}
         className={[
           "px-3 py-1.5 rounded-md border text-sm font-medium transition",
           active
             ? "bg-blue-600 text-white border-blue-600"
             : "bg-white text-gray-900 border-gray-300 hover:bg-gray-50",
-          locked ? "opacity-60 cursor-not-allowed" : "",
         ].join(" ")}
       >
         {label}
@@ -35,7 +32,7 @@ export default function PreferenceBox({
 
   const chip = (val, label, classes) => {
     const active = strength === val;
-    const disabled = locked || selected === "tie" || !selected;
+    const disabled = selected === "tie" || !selected;
     return (
       <button
         type="button"
@@ -48,7 +45,6 @@ export default function PreferenceBox({
             : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
           disabled ? "opacity-60 cursor-not-allowed" : "",
         ].join(" ")}
-        title={label}
       >
         {label}
       </button>
@@ -56,32 +52,24 @@ export default function PreferenceBox({
   };
 
   return (
-    <div
-      className="
-        flex flex-col items-center gap-1
-      "
-    >
-      {/* Row 1: buttons + submit inline */}
+    <div className="flex flex-col items-center gap-1">
+      {/* Row 1: preference + submit */}
       <div className="flex items-center gap-2">
         {prefBtn(1, "1")}
         {prefBtn(2, "2")}
         {prefBtn("tie", "Tie")}
 
-        {/* Submit stays inline and closer */}
         <button
           type="button"
           onClick={onSubmit}
-          disabled={locked || !selected || (selected !== "tie" && !strength)}
-          className={[
-            "px-3 py-1.5 rounded-md bg-black text-white text-sm font-semibold",
-            "disabled:opacity-60 disabled:cursor-not-allowed",
-          ].join(" ")}
+          disabled={!selected || (selected !== "tie" && !strength)}
+          className="px-3 py-1.5 rounded-md bg-black text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Submit
+          {locked ? "Resubmit" : "Submit"}
         </button>
       </div>
 
-      {/* Row 2: Strength chips appear below */}
+      {/* Row 2: strength chips */}
       <div
         className={[
           "flex items-center gap-2 min-h-[30px]",
