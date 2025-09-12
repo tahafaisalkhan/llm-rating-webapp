@@ -29,42 +29,13 @@ app.get("/api/health", (_req, res) =>
 /** Helper: normalize model names to server canonical values */
 function normalizeModelUsed(v) {
   const s = String(v || "").toLowerCase();
-  if (s === "chatgpt") return "gemma";     // map old to new
+  if (s === "chatgpt") return "gemma";   // map old label -> new
   if (s === "gemma") return "gemma";
   if (s === "medgemma") return "medgemma";
   return "unknown";
 }
 
-/** POST /api/ratings */
-app.post("/api/ratings", async (req, res) => {
-  try {
-    const { rater, modelId, datasetId, modelUsed, comparison, scores, major_error } = req.body || {};
-    const modelUsedNorm = normalizeModelUsed(modelUsed);
-    if (!rater || !modelId || !modelUsedNorm || !scores) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    try {
-      const doc = await Rating.create({
-        rater,
-        modelId,
-        datasetId: datasetId || "",
-        modelUsed: modelUsedNorm,
-        comparison: comparison || "",
-        scores,
-        major_error: !!major_error,
-      });
-      return res.status(201).json({ ok: true, id: doc._id });
-    } catch (e) {
-      if (e && e.code === 11000) return res.status(409).json({ error: "Already submitted" });
-      throw e;
-    }
-  } catch (e) {
-    console.error("POST /api/ratings error:", e);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
+/** ----------------- RATINGS ----------------- */
 /** Sum 0–5 axes safely (missing -> 0) */
 function totalScore(scores) {
   const axes = ["axis1","axis2","axis3","axis4","axis5","axis6","axis7"];
@@ -75,6 +46,46 @@ function totalScore(scores) {
   }
   return sum;
 }
+
+/** POST /api/ratings  (now UPSERTS to allow resubmission) */
+app.post("/api/ratings", async (req, res) => {
+  try {
+    const { rater, modelId, datasetId, modelUsed, comparison, scores, major_error } = req.body || {};
+    const modelUsedNorm = normalizeModelUsed(modelUsed);
+    if (!rater || !modelId || !modelUsedNorm || !scores) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Upsert by unique key (rater, modelUsed, modelId)
+    const filter = { rater, modelUsed: modelUsedNorm, modelId };
+    const update = {
+      $set: {
+        datasetId: datasetId || "",
+        comparison: comparison || "",
+        scores,
+        major_error: !!major_error,
+        updatedAt: new Date(),
+      },
+      $setOnInsert: { createdAt: new Date() },
+    };
+
+    const doc = await Rating.findOneAndUpdate(filter, update, {
+      upsert: true,
+      new: true,        // return the updated/inserted doc
+      lean: true,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      id: doc._id,
+      total: totalScore(doc.scores),
+      major_error: !!doc.major_error,
+    });
+  } catch (e) {
+    console.error("POST /api/ratings error:", e);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 /** GET /api/ratings/status?modelUsed=...&modelId=...&rater=... */
 app.get("/api/ratings/status", async (req, res) => {
@@ -89,7 +100,7 @@ app.get("/api/ratings/status", async (req, res) => {
     res.json({
       exists: true,
       major_error: !!hit.major_error,
-      total: totalScore(hit.scores), // ← NEW: x out of 35
+      total: totalScore(hit.scores), // x out of 35
     });
   } catch (e) {
     console.error("GET /api/ratings/status error:", e);
@@ -97,45 +108,57 @@ app.get("/api/ratings/status", async (req, res) => {
   }
 });
 
-/** PREFERENCES (unchanged) */
+/** ----------------- PREFERENCES ----------------- */
+/** POST /api/preferences  (now UPSERTS to allow resubmission) */
 app.post("/api/preferences", async (req, res) => {
   try {
     const { rater, comparison, set1Id, set2Id, result, strength } = req.body || {};
     if (!rater || !comparison || result === undefined) {
       return res.status(400).json({ error: "Missing required fields" });
     }
+
     const numResult = Number(result);
-    if (![0,1,2].includes(numResult)) {
+    if (![0, 1, 2].includes(numResult)) {
       return res.status(400).json({ error: "result must be 0 (tie), 1, or 2" });
     }
+
+    // Normalize strength: only store if not a tie
     let normalizedStrength = null;
     if (numResult !== 0 && strength != null) {
       const s = String(strength).toLowerCase();
-      if (!["weak","moderate","strong"].includes(s)) {
+      if (!["weak", "moderate", "strong"].includes(s)) {
         return res.status(400).json({ error: "strength must be weak|moderate|strong when provided" });
       }
       normalizedStrength = s;
     }
-    try {
-      const doc = await Preference.create({
-        rater,
-        comparison,
+
+    // Upsert by unique key (rater, comparison)
+    const filter = { rater, comparison };
+    const update = {
+      $set: {
         set1Id: set1Id || "",
         set2Id: set2Id || "",
         result: numResult,
-        strength: normalizedStrength,
-      });
-      return res.status(201).json({ ok: true, id: doc._id });
-    } catch (e) {
-      if (e && e.code === 11000) return res.status(409).json({ error: "Already submitted" });
-      throw e;
-    }
+        strength: normalizedStrength, // null if tie
+        updatedAt: new Date(),
+      },
+      $setOnInsert: { createdAt: new Date() },
+    };
+
+    const doc = await Preference.findOneAndUpdate(filter, update, {
+      upsert: true,
+      new: true,
+      lean: true,
+    });
+
+    return res.status(200).json({ ok: true, id: doc._id });
   } catch (e) {
     console.error("POST /api/preferences error:", e);
     res.status(500).json({ error: "Server error" });
   }
 });
 
+/** GET /api/preferences/status?comparison=...&rater=... */
 app.get("/api/preferences/status", async (req, res) => {
   try {
     const { comparison, rater } = req.query;
@@ -151,7 +174,7 @@ app.get("/api/preferences/status", async (req, res) => {
   }
 });
 
-// serve SPA
+/** -------------- Serve SPA -------------- */
 const DIST_DIR = path.join(__dirname, "..", "dist");
 app.use(express.static(DIST_DIR));
 app.get("*", (req, res, next) => {
