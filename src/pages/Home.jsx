@@ -4,14 +4,13 @@ import PanelCard from "../components/PanelCard";
 import PreferenceBox from "../components/PreferenceBox";
 import { getRater, clearRater } from "../utils/auth";
 
-// Simple, deterministic 32-bit hash for strings
+// Deterministic hash for layout flipping (unchanged)
 function hash32(str) {
-  let h = 2166136261 >>> 0; // FNV-like start
+  let h = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  // final avalanche
   h += h << 13; h ^= h >>> 7;
   h += h << 3;  h ^= h >>> 17;
   h += h << 5;
@@ -24,15 +23,9 @@ export default function Home() {
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  // preference UI state per comparison
-  // selected: 0 | 1 | 2  (0 = tie, 1 = left(set1), 2 = right(set2))
-  const [selected, setSelected] = useState({}); // { [comparison]: 0|1|2 }
-  const [strength, setStrength] = useState({}); // { [comparison]: "weak"|"moderate"|"strong"|null }
-  const [locked, setLocked] = useState({});     // { [comparison]: true }
+  const [selectedMap, setSelectedMap] = useState({}); // { [comparison]: 0|1|2 }
+  const [strengthMap, setStrengthMap] = useState({}); // { [comparison]: "weak"|"moderate"|"strong"|null }
 
-  // rating status for cards
-  // ratedMap: { "gemma:<id>": true, "medgemma:<id>": true }
-  // majorMap: { "gemma:<id>": true, "medgemma:<id>": true }
   const [ratedMap, setRatedMap] = useState({});
   const [majorMap, setMajorMap] = useState({});
 
@@ -44,7 +37,7 @@ export default function Home() {
         const rows = await res.json();
         const arr = Array.isArray(rows) ? rows : [];
         setPairs(arr);
-        await checkStatuses(arr);
+        await refreshStatuses(arr);
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load paired data.");
@@ -53,16 +46,15 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function checkStatuses(rows) {
+  async function refreshStatuses(rows) {
     const ratedEntries = {};
     const majorEntries = {};
-    const lockedEntries = {};
-    const selEntries = {};
-    const strEntries = {};
+    const choiceEntries = {};
+    const strengthEntries = {};
     const fetches = [];
 
     for (const p of rows) {
-      // --- preference status per rater
+      // Prefill previous choice but DO NOT lock
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -72,19 +64,17 @@ export default function Home() {
           .then((r) => (r.ok ? r.json() : { exists: false }))
           .then((j) => {
             if (j?.exists) {
-              lockedEntries[p.comparison] = true;
               if ([0, 1, 2].includes(Number(j.result))) {
-                selEntries[p.comparison] = Number(j.result);
+                choiceEntries[p.comparison] = Number(j.result);
               }
-              strEntries[p.comparison] =
+              strengthEntries[p.comparison] =
                 Number(j.result) === 0 ? null : (j.strength ?? null);
             }
           })
           .catch(() => {})
       );
 
-      // --- rating status for each panel (+ major flag) per rater
-      const handleRating = (key, modelUsed, modelId) =>
+      const pull = (key, modelUsed, modelId) =>
         fetch(
           `/api/ratings/status?modelUsed=${encodeURIComponent(
             modelUsed
@@ -101,65 +91,39 @@ export default function Home() {
           })
           .catch(() => {});
 
-      if (p.chatgpt?.id) {
-        // LEFT source item (historically chatgpt.json) is labeled GEMMA in backend
-        fetches.push(
-          handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id)
-        );
-      }
-      if (p.medgemma?.id) {
-        fetches.push(
-          handleRating(
-            `medgemma:${p.medgemma.id}`,
-            "medgemma",
-            p.medgemma.id
-          )
-        );
-      }
+      if (p.chatgpt?.id) fetches.push(pull(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id));
+      if (p.medgemma?.id) fetches.push(pull(`medgemma:${p.medgemma.id}`, "medgemma", p.medgemma.id));
     }
 
     await Promise.all(fetches);
     setRatedMap(ratedEntries);
     setMajorMap(majorEntries);
-    setLocked((m) => ({ ...m, ...lockedEntries }));
-    setSelected((m) => ({ ...m, ...selEntries }));
-    setStrength((m) => ({ ...m, ...strEntries }));
+    setSelectedMap((m) => ({ ...m, ...choiceEntries }));
+    setStrengthMap((m) => ({ ...m, ...strengthEntries }));
   }
 
-  // For each comparison, decide whether to swap left/right deterministically.
-  // If (hash(comparison) & 1) == 1, flip: left = medgemma, right = gemma.
+  // Deterministic left/right
   const viewPairs = useMemo(() => {
     return pairs.map((p) => {
       const flip = ((hash32(String(p.comparison)) & 1) === 1);
       const left = flip ? p.medgemma : p.chatgpt;
       const right = flip ? p.chatgpt : p.medgemma;
-
-      // Which backend labels apply to left/right?
       const leftModelUsed = flip ? "medgemma" : "gemma";
       const rightModelUsed = flip ? "gemma" : "medgemma";
-
-      return {
-        comparison: p.comparison,
-        left,
-        right,
-        leftModelUsed,
-        rightModelUsed,
-      };
+      return { comparison: p.comparison, left, right, leftModelUsed, rightModelUsed };
     });
   }, [pairs]);
 
   async function submitPref(vp) {
     const comp = vp.comparison;
-    if (locked[comp]) return;
-
-    const resVal = selected[comp]; // 0 (tie), 1 (left), 2 (right)
-    const strVal = resVal === 0 ? null : (strength[comp] ?? null);
+    const resVal = selectedMap[comp]; // 0,1,2
+    const s = resVal === 0 ? null : (strengthMap[comp] ?? null);
 
     if (resVal === undefined) {
       alert("Pick 1, 2, or Tie first.");
       return;
     }
-    if (resVal !== 0 && !strVal) {
+    if (resVal !== 0 && !s) {
       alert("Select preference strength (Weak/Moderate/Strong).");
       return;
     }
@@ -170,21 +134,16 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           comparison: comp,
-          set1Id: vp.left?.id || "",   // set1 = LEFT (deterministic)
-          set2Id: vp.right?.id || "",  // set2 = RIGHT
-          result: resVal,              // 0,1,2
-          strength: strVal,            // null for tie
+          set1Id: vp.left?.id || "",
+          set2Id: vp.right?.id || "",
+          result: resVal,
+          strength: s,
           rater,
         }),
       });
-      if (r.status === 409) {
-        setLocked((m) => ({ ...m, [comp]: true }));
-        alert("Already submitted for this comparison.");
-        return;
-      }
       if (!r.ok) throw new Error(await r.text());
-      setLocked((m) => ({ ...m, [comp]: true }));
-      alert("Preference submitted.");
+      alert("Saved. Previous preference (if any) was replaced.");
+      await refreshStatuses([vp]); // refresh the one row
     } catch (e) {
       console.error(e);
       alert("Failed: " + (e.message || "Unknown"));
@@ -193,7 +152,7 @@ export default function Home() {
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
-      {/* Top bar */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <a
           href="/rubric"
@@ -234,7 +193,6 @@ export default function Home() {
       {viewPairs.map((vp) => {
         const comp = vp.comparison;
 
-        // rated/major status derived from actual modelUsed for each side
         const leftKey = vp.left?.id ? `${vp.leftModelUsed}:${vp.left.id}` : null;
         const rightKey = vp.right?.id ? `${vp.rightModelUsed}:${vp.right.id}` : null;
 
@@ -244,9 +202,8 @@ export default function Home() {
         const leftMajor = leftKey ? !!majorMap[leftKey] : false;
         const rightMajor = rightKey ? !!majorMap[rightKey] : false;
 
-        const isLocked = !!locked[comp];
-        const sel = selected[comp];
-        const str = strength[comp];
+        const sel = selectedMap[comp];
+        const str = strengthMap[comp] ?? null;
 
         return (
           <div key={comp} className="grid grid-cols-3 gap-4 items-start">
@@ -280,20 +237,18 @@ export default function Home() {
               )}
             </div>
 
-            {/* Preference controls (keeps your established design via PreferenceBox) */}
+            {/* Preference controls — same design; always enabled */}
             <div className="flex items-center justify-center">
               <PreferenceBox
-                locked={isLocked}
-                selected={
-                  sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined
-                }
+                locked={false}
+                selected={sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined}
                 setSelected={(val) => {
-                  const normalized = val === "tie" ? 0 : val; // map to 0/1/2
-                  setSelected((m) => ({ ...m, [comp]: normalized }));
+                  const normalized = val === "tie" ? 0 : val;
+                  setSelectedMap((m) => ({ ...m, [comp]: normalized }));
                 }}
-                strength={str || null}
+                strength={str}
                 setStrength={(val) =>
-                  setStrength((m) => ({ ...m, [comp]: val }))
+                  setStrengthMap((m) => ({ ...m, [comp]: val }))
                 }
                 onSubmit={() => submitPref(vp)}
               />

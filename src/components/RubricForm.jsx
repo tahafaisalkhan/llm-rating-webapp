@@ -1,36 +1,24 @@
 // src/components/RubricForm.jsx
 import { useEffect, useMemo, useState } from "react";
 
-/**
- * Props:
- *  - disabledInitial: boolean
- *  - itemId: string
- *  - datasetId: string
- *  - comparison: string
- *  - modelUsed: "chatgpt" | "medgemma"
- *  - rater: string
- *  - initialMajorError?: boolean   // ← NEW
- */
 export default function RubricForm({
-  disabledInitial = false,
+  disabledInitial = false,   // kept for compatibility, but we won’t lock
   itemId,
   datasetId,
   comparison,
   modelUsed,
   rater,
-  initialMajorError = false, // ← NEW
+  initialMajorError = false,
 }) {
-  // 7 axes, default 3
   const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3]);
   const [extra, setExtra] = useState("");
-  const [majorError, setMajorError] = useState(!!initialMajorError); // ← NEW
+  const [majorError, setMajorError] = useState(!!initialMajorError);
 
   const [saving, setSaving] = useState(false);
-  const [locked, setLocked] = useState(!!disabledInitial);
-  const [err, setErr] = useState("");
+  const [locked, setLocked] = useState(false); // ← allow resubmission
 
-  useEffect(() => setLocked(!!disabledInitial), [disabledInitial]);
-  useEffect(() => setMajorError(!!initialMajorError), [initialMajorError]); // keep toggle on reopen
+  useEffect(() => setLocked(false), [disabledInitial]);
+  useEffect(() => setMajorError(!!initialMajorError), [initialMajorError]);
 
   const setAxis = (i, v) =>
     setScores((arr) => {
@@ -54,7 +42,6 @@ export default function RubricForm({
 
   async function submit(e) {
     e.preventDefault();
-    if (locked) return;
     setSaving(true);
     setErr("");
 
@@ -75,7 +62,7 @@ export default function RubricForm({
           axis7: scores[6],
           comments: { extra: extra || "" },
         },
-        major_error: !!majorError, // send the flag
+        major_error: !!majorError,
       };
 
       const res = await fetch("/api/ratings", {
@@ -84,21 +71,13 @@ export default function RubricForm({
         body: JSON.stringify(body),
       });
 
-      if (res.status === 409) {
-        setLocked(true);
-        setSaving(false);
-        alert("You already submitted a rating for this item.");
-        return;
-      }
-
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || "Server error");
       }
 
-      setLocked(true);
       setSaving(false);
-      alert("Rating submitted. Thank you!");
+      alert("Saved. Previous rating (if any) was replaced.");
     } catch (e2) {
       console.error(e2);
       setErr(e2.message || "Failed to submit.");
@@ -106,7 +85,8 @@ export default function RubricForm({
     }
   }
 
-  // Keep compact Likert & bring a bit closer to labels
+  const [err, setErr] = useState("");
+
   const Likert = ({ value, onChange, disabled }) => (
     <div className="flex items-center gap-2 text-[13px] select-none">
       {[0, 1, 2, 3, 4, 5].map((n) => (
@@ -127,7 +107,6 @@ export default function RubricForm({
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      {/* Header + right-side toggle */}
       <div className="flex items-center justify-between">
         <div className="font-semibold">Rubric (0–5)</div>
 
@@ -158,7 +137,6 @@ export default function RubricForm({
         </label>
       </div>
 
-      {/* Scrollable, compact rubric */}
       <div className="max-h-56 overflow-y-auto pr-1">
         <div className="space-y-2">
           {AXES.map((ax, i) => (
@@ -170,7 +148,6 @@ export default function RubricForm({
         </div>
       </div>
 
-      {/* Extra note (single line) */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm">Extra Comments</div>
         <input
@@ -185,17 +162,13 @@ export default function RubricForm({
 
       {err && <div className="text-sm text-red-700">{err}</div>}
 
-      {locked ? (
-        <div className="text-green-700 font-semibold">✓ Submitted</div>
-      ) : (
-        <button
-          type="submit"
-          className="bg-black text-white rounded px-4 py-2 font-semibold disabled:opacity-60"
-          disabled={saving}
-        >
-          {saving ? "Submitting…" : "Submit"}
-        </button>
-      )}
+      <button
+        type="submit"
+        className="bg-black text-white rounded px-4 py-2 font-semibold disabled:opacity-60"
+        disabled={saving}
+      >
+        {saving ? "Submitting…" : "Submit"}
+      </button>
     </form>
   );
 }

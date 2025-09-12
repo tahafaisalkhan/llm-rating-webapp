@@ -29,13 +29,17 @@ app.get("/api/health", (_req, res) =>
 /** Helper: normalize model names to server canonical values */
 function normalizeModelUsed(v) {
   const s = String(v || "").toLowerCase();
-  if (s === "chatgpt") return "gemma";     // ← map old to new
+  if (s === "chatgpt") return "gemma";     // map old -> new
   if (s === "gemma") return "gemma";
   if (s === "medgemma") return "medgemma";
   return "unknown";
 }
 
-/** POST /api/ratings */
+/**
+ * POST /api/ratings
+ * Body: { rater, modelId, datasetId, modelUsed, comparison, scores:{...}, major_error?: boolean }
+ * Behavior: resubmission allowed — replaces previous (rater, modelUsed, modelId).
+ */
 app.post("/api/ratings", async (req, res) => {
   try {
     const { rater, modelId, datasetId, modelUsed, comparison, scores, major_error } = req.body || {};
@@ -44,21 +48,24 @@ app.post("/api/ratings", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    try {
-      const doc = await Rating.create({
-        rater,
-        modelId,
-        datasetId: datasetId || "",
-        modelUsed: modelUsedNorm,       // ← normalized
-        comparison: comparison || "",
-        scores,
-        major_error: !!major_error,     // ← keep your flag
-      });
-      return res.status(201).json({ ok: true, id: doc._id });
-    } catch (e) {
-      if (e && e.code === 11000) return res.status(409).json({ error: "Already submitted" });
-      throw e;
-    }
+    const filter = { rater, modelUsed: modelUsedNorm, modelId };
+    const update = {
+      rater,
+      modelId,
+      datasetId: datasetId || "",
+      modelUsed: modelUsedNorm,
+      comparison: comparison || "",
+      scores,
+      major_error: !!major_error,
+      updatedAt: new Date(),
+    };
+
+    // Replace-or-insert (no 409)
+    const r = await Rating.updateOne(filter, { $set: update }, { upsert: true });
+    return res.status(201).json({
+      ok: true,
+      replaced: (r.matchedCount || 0) > 0, // true if an old doc existed
+    });
   } catch (e) {
     console.error("POST /api/ratings error:", e);
     res.status(500).json({ error: "Server error" });
@@ -81,7 +88,11 @@ app.get("/api/ratings/status", async (req, res) => {
   }
 });
 
-/** PREFERENCES — unchanged from your working version */
+/**
+ * POST /api/preferences
+ * Body: { rater, comparison, set1Id, set2Id, result(0|1|2), strength?("weak"|"moderate"|"strong") }
+ * Behavior: resubmission allowed — replaces previous (rater, comparison).
+ */
 app.post("/api/preferences", async (req, res) => {
   try {
     const { rater, comparison, set1Id, set2Id, result, strength } = req.body || {};
@@ -89,31 +100,36 @@ app.post("/api/preferences", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
     const numResult = Number(result);
-    if (![0,1,2].includes(numResult)) {
+    if (![0, 1, 2].includes(numResult)) {
       return res.status(400).json({ error: "result must be 0 (tie), 1, or 2" });
     }
+
     let normalizedStrength = null;
     if (numResult !== 0 && strength != null) {
       const s = String(strength).toLowerCase();
-      if (!["weak","moderate","strong"].includes(s)) {
+      if (!["weak", "moderate", "strong"].includes(s)) {
         return res.status(400).json({ error: "strength must be weak|moderate|strong when provided" });
       }
       normalizedStrength = s;
     }
-    try {
-      const doc = await Preference.create({
-        rater,
-        comparison,
-        set1Id: set1Id || "",
-        set2Id: set2Id || "",
-        result: numResult,
-        strength: normalizedStrength,
-      });
-      return res.status(201).json({ ok: true, id: doc._id });
-    } catch (e) {
-      if (e && e.code === 11000) return res.status(409).json({ error: "Already submitted" });
-      throw e;
-    }
+
+    const filter = { rater, comparison };
+    const update = {
+      rater,
+      comparison,
+      set1Id: set1Id || "",
+      set2Id: set2Id || "",
+      result: numResult,
+      strength: normalizedStrength,
+      updatedAt: new Date(),
+    };
+
+    // Replace-or-insert (no 409)
+    const r = await Preference.updateOne(filter, { $set: update }, { upsert: true });
+    return res.status(201).json({
+      ok: true,
+      replaced: (r.matchedCount || 0) > 0,
+    });
   } catch (e) {
     console.error("POST /api/preferences error:", e);
     res.status(500).json({ error: "Server error" });
