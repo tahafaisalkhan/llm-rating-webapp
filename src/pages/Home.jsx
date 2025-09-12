@@ -1,22 +1,8 @@
 // src/pages/Home.jsx
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import PanelCard from "../components/PanelCard";
 import PreferenceBox from "../components/PreferenceBox";
 import { getRater, clearRater } from "../utils/auth";
-
-// Simple, deterministic 32-bit hash for strings
-function hash32(str) {
-  let h = 2166136261 >>> 0; // FNV-like start
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  // final avalanche
-  h += h << 13; h ^= h >>> 7;
-  h += h << 3;  h ^= h >>> 17;
-  h += h << 5;
-  return h >>> 0;
-}
 
 export default function Home() {
   const rater = getRater();
@@ -24,17 +10,13 @@ export default function Home() {
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  // preference UI state per comparison
-  // selected: 0 | 1 | 2  (0 = tie, 1 = left(set1), 2 = right(set2))
-  const [selected, setSelected] = useState({}); // { [comparison]: 0|1|2 }
+  // preference state (no locking now)
+  const [choice, setChoice] = useState({});     // { [comparison]: 0|1|2 }
   const [strength, setStrength] = useState({}); // { [comparison]: "weak"|"moderate"|"strong"|null }
-  const [locked, setLocked] = useState({});     // { [comparison]: true }
 
   // rating status for cards
-  // ratedMap: { "gemma:<id>": true, "medgemma:<id>": true }
-  // majorMap: { "gemma:<id>": true, "medgemma:<id>": true }
-  const [ratedMap, setRatedMap] = useState({});
-  const [majorMap, setMajorMap] = useState({});
+  const [ratedMap, setRatedMap] = useState({}); // { "gemma:<id>": true, "medgemma:<id>": true }
+  const [majorMap, setMajorMap] = useState({}); // { "gemma:<id>": true } for red panel
 
   useEffect(() => {
     (async () => {
@@ -44,7 +26,7 @@ export default function Home() {
         const rows = await res.json();
         const arr = Array.isArray(rows) ? rows : [];
         setPairs(arr);
-        await checkStatuses(arr);
+        await refreshStatuses(arr);
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load paired data.");
@@ -53,16 +35,15 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function checkStatuses(rows) {
+  async function refreshStatuses(rows) {
     const ratedEntries = {};
     const majorEntries = {};
-    const lockedEntries = {};
-    const selEntries = {};
-    const strEntries = {};
+    const choiceEntries = {};
+    const strengthEntries = {};
     const fetches = [];
 
     for (const p of rows) {
-      // --- preference status per rater
+      // preference status -> prefill selected + strength (but don't lock)
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -72,25 +53,21 @@ export default function Home() {
           .then((r) => (r.ok ? r.json() : { exists: false }))
           .then((j) => {
             if (j?.exists) {
-              lockedEntries[p.comparison] = true;
-              if ([0, 1, 2].includes(Number(j.result))) {
-                selEntries[p.comparison] = Number(j.result);
+              if ([0, 1, 2].includes(j.result)) choiceEntries[p.comparison] = j.result;
+              if (j.strength === null || ["weak", "moderate", "strong"].includes(j.strength)) {
+                strengthEntries[p.comparison] = j.strength;
               }
-              strEntries[p.comparison] =
-                Number(j.result) === 0 ? null : (j.strength ?? null);
             }
           })
           .catch(() => {})
       );
 
-      // --- rating status for each panel (+ major flag) per rater
-      const handleRating = (key, modelUsed, modelId) =>
+      // rating status (exists + major flag)
+      const grab = (key, modelUsed, modelId) =>
         fetch(
           `/api/ratings/status?modelUsed=${encodeURIComponent(
             modelUsed
-          )}&modelId=${encodeURIComponent(modelId)}&rater=${encodeURIComponent(
-            rater
-          )}`
+          )}&modelId=${encodeURIComponent(modelId)}&rater=${encodeURIComponent(rater)}`
         )
           .then((r) => (r.ok ? r.json() : { exists: false }))
           .then((j) => {
@@ -101,90 +78,52 @@ export default function Home() {
           })
           .catch(() => {});
 
-      if (p.chatgpt?.id) {
-        // LEFT source item (historically chatgpt.json) is labeled GEMMA in backend
-        fetches.push(
-          handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id)
-        );
+      if (p.gemma?.id) {
+        fetches.push(grab(`gemma:${p.gemma.id}`, "gemma", p.gemma.id));
       }
       if (p.medgemma?.id) {
-        fetches.push(
-          handleRating(
-            `medgemma:${p.medgemma.id}`,
-            "medgemma",
-            p.medgemma.id
-          )
-        );
+        fetches.push(grab(`medgemma:${p.medgemma.id}`, "medgemma", p.medgemma.id));
       }
     }
 
     await Promise.all(fetches);
     setRatedMap(ratedEntries);
     setMajorMap(majorEntries);
-    setLocked((m) => ({ ...m, ...lockedEntries }));
-    setSelected((m) => ({ ...m, ...selEntries }));
-    setStrength((m) => ({ ...m, ...strEntries }));
+    setChoice((m) => ({ ...m, ...choiceEntries }));
+    setStrength((m) => ({ ...m, ...strengthEntries }));
   }
 
-  // For each comparison, decide whether to swap left/right deterministically.
-  // If (hash(comparison) & 1) == 1, flip: left = medgemma, right = gemma.
-  const viewPairs = useMemo(() => {
-    return pairs.map((p) => {
-      const flip = ((hash32(String(p.comparison)) & 1) === 1);
-      const left = flip ? p.medgemma : p.chatgpt;
-      const right = flip ? p.chatgpt : p.medgemma;
+  async function submitPref(p) {
+    const result = choice[p.comparison];
+    const s = strength[p.comparison] ?? null;
 
-      // Which backend labels apply to left/right?
-      const leftModelUsed = flip ? "medgemma" : "gemma";
-      const rightModelUsed = flip ? "gemma" : "medgemma";
-
-      return {
-        comparison: p.comparison,
-        left,
-        right,
-        leftModelUsed,
-        rightModelUsed,
-      };
-    });
-  }, [pairs]);
-
-  async function submitPref(vp) {
-    const comp = vp.comparison;
-    if (locked[comp]) return;
-
-    const resVal = selected[comp]; // 0 (tie), 1 (left), 2 (right)
-    const strVal = resVal === 0 ? null : (strength[comp] ?? null);
-
-    if (resVal === undefined) {
+    if (![0, 1, 2].includes(result)) {
       alert("Pick 1, 2, or Tie first.");
       return;
     }
-    if (resVal !== 0 && !strVal) {
-      alert("Select preference strength (Weak/Moderate/Strong).");
+    if (result !== 0 && !["weak", "moderate", "strong"].includes(s)) {
+      alert("Pick strength (weak/moderate/strong).");
       return;
     }
 
     try {
-      const r = await fetch("/api/preferences", {
+      const res = await fetch("/api/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          comparison: comp,
-          set1Id: vp.left?.id || "",   // set1 = LEFT (deterministic)
-          set2Id: vp.right?.id || "",  // set2 = RIGHT
-          result: resVal,              // 0,1,2
-          strength: strVal,            // null for tie
+          comparison: p.comparison,
+          set1Id: p.gemma?.id || "",
+          set2Id: p.medgemma?.id || "",
+          result,
+          strength: result === 0 ? null : s,
           rater,
         }),
       });
-      if (r.status === 409) {
-        setLocked((m) => ({ ...m, [comp]: true }));
-        alert("Already submitted for this comparison.");
-        return;
-      }
-      if (!r.ok) throw new Error(await r.text());
-      setLocked((m) => ({ ...m, [comp]: true }));
-      alert("Preference submitted.");
+
+      if (!res.ok) throw new Error(await res.text());
+      alert("Saved. (Previous submission replaced if it existed.)");
+      // refresh status so badges reflect the latest
+      await refreshStatuses([p]);
     } catch (e) {
       console.error(e);
       alert("Failed: " + (e.message || "Unknown"));
@@ -193,7 +132,7 @@ export default function Home() {
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
-      {/* Top bar */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <a
           href="/rubric"
@@ -231,71 +170,65 @@ export default function Home() {
 
       {err && <div className="text-sm text-red-700">{err}</div>}
 
-      {viewPairs.map((vp) => {
-        const comp = vp.comparison;
+      {pairs.map((p) => {
+        const set1Key = p.gemma?.id ? `gemma:${p.gemma.id}` : null;
+        const set2Key = p.medgemma?.id ? `medgemma:${p.medgemma.id}` : null;
 
-        // rated/major status derived from actual modelUsed for each side
-        const leftKey = vp.left?.id ? `${vp.leftModelUsed}:${vp.left.id}` : null;
-        const rightKey = vp.right?.id ? `${vp.rightModelUsed}:${vp.right.id}` : null;
+        const set1Rated = set1Key ? !!ratedMap[set1Key] : false;
+        const set2Rated = set2Key ? !!ratedMap[set2Key] : false;
 
-        const leftRated = leftKey ? !!ratedMap[leftKey] : false;
-        const rightRated = rightKey ? !!ratedMap[rightKey] : false;
+        const set1Major = set1Key ? !!majorMap[set1Key] : false;
+        const set2Major = set2Key ? !!majorMap[set2Key] : false;
 
-        const leftMajor = leftKey ? !!majorMap[leftKey] : false;
-        const rightMajor = rightKey ? !!majorMap[rightKey] : false;
-
-        const isLocked = !!locked[comp];
-        const sel = selected[comp];
-        const str = strength[comp];
+        const selected = choice[p.comparison];
+        const s = strength[p.comparison] ?? null;
 
         return (
-          <div key={comp} className="grid grid-cols-3 gap-4 items-start">
-            {/* LEFT (Set 1) */}
+          <div key={p.comparison} className="grid grid-cols-3 gap-4 items-start">
+            {/* Set 1 */}
             <div>
-              {vp.left ? (
+              {p.gemma ? (
                 <PanelCard
-                  id={vp.left.id}
-                  datasetid={vp.left.datasetid}
+                  id={p.gemma.id}
+                  datasetid={p.gemma.datasetid}
                   setLabel="set1"
-                  rated={leftRated && !leftMajor}
-                  major={leftMajor}
+                  rated={set1Rated}
+                  major={set1Major}
+                  isGemma
                 />
               ) : (
                 <Blank label="No Set 1 item" />
               )}
             </div>
 
-            {/* RIGHT (Set 2) */}
+            {/* Set 2 */}
             <div>
-              {vp.right ? (
+              {p.medgemma ? (
                 <PanelCard
-                  id={vp.right.id}
-                  datasetid={vp.right.datasetid}
+                  id={p.medgemma.id}
+                  datasetid={p.medgemma.datasetid}
                   setLabel="set2"
-                  rated={rightRated && !rightMajor}
-                  major={rightMajor}
+                  rated={set2Rated}
+                  major={set2Major}
                 />
               ) : (
                 <Blank label="No Set 2 item" />
               )}
             </div>
 
-            {/* Preference controls (keeps your established design via PreferenceBox) */}
-            <div className="flex items-center justify-center">
+            {/* Preference controls (always enabled) */}
+            <div className="flex flex-col items-center">
               <PreferenceBox
-                locked={isLocked}
-                selected={
-                  sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined
+                locked={false}
+                selected={selected}
+                setSelected={(val) =>
+                  setChoice((m) => ({ ...m, [p.comparison]: val }))
                 }
-                setSelected={(val) => {
-                  const normalized = val === "tie" ? 0 : val; // map to 0/1/2
-                  setSelected((m) => ({ ...m, [comp]: normalized }));
-                }}
-                strength={str || null}
+                strength={s}
                 setStrength={(val) =>
-                  setStrength((m) => ({ ...m, [comp]: val }))
+                  setStrength((m) => ({ ...m, [p.comparison]: val }))
                 }
-                onSubmit={() => submitPref(vp)}
+                onSubmit={() => submitPref(p)}
               />
             </div>
           </div>
