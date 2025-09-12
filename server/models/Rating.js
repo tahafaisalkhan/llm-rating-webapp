@@ -1,3 +1,4 @@
+// server/models/Rating.js
 const mongoose = require("mongoose");
 
 const RatingSchema = new mongoose.Schema(
@@ -12,9 +13,10 @@ const RatingSchema = new mongoose.Schema(
     },
     comparison: { type: String, default: "" },
 
-    // NEW: flag for major clinical error
+    // NEW: major error flag
     major_error: { type: Boolean, default: false },
 
+    // 7-axis rubric (backward-compatible with older docs)
     scores: {
       axis1: { type: Number, min: 0, max: 5, required: true },
       axis2: { type: Number, min: 0, max: 5, required: true },
@@ -23,8 +25,14 @@ const RatingSchema = new mongoose.Schema(
       axis5: { type: Number, min: 0, max: 5, required: true },
       axis6: { type: Number, min: 0, max: 5, required: true },
       axis7: { type: Number, min: 0, max: 5, required: true },
-
       comments: {
+        axis1: { type: String, default: "" },
+        axis2: { type: String, default: "" },
+        axis3: { type: String, default: "" },
+        axis4: { type: String, default: "" },
+        axis5: { type: String, default: "" },
+        axis6: { type: String, default: "" },
+        axis7: { type: String, default: "" },
         extra: { type: String, default: "" },
       },
     },

@@ -12,6 +12,7 @@ export default function Detail() {
   const [mg, setMg] = useState(null);
   const [err, setErr] = useState("");
   const [already, setAlready] = useState(false);
+  const [initialMajor, setInitialMajor] = useState(false); // ← NEW
 
   const rater = getRater() || "";
 
@@ -35,6 +36,7 @@ export default function Detail() {
         );
         const j = res.ok ? await res.json() : { exists: false };
         setAlready(!!j.exists);
+        setInitialMajor(!!j.major_error); // ← set toggle state if exists
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load.");
@@ -120,6 +122,7 @@ export default function Detail() {
           comparison={comparison}
           modelUsed={modelUsed}
           rater={rater}
+          initialMajorError={initialMajor} // ← pass toggle initial state
         />
       </div>
     </div>

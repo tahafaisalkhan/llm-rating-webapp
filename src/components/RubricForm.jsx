@@ -1,13 +1,15 @@
+// src/components/RubricForm.jsx
 import { useEffect, useMemo, useState } from "react";
 
 /**
  * Props:
- *  - disabledInitial: boolean (already submitted by this rater)
- *  - itemId: string (modelId)
+ *  - disabledInitial: boolean
+ *  - itemId: string
  *  - datasetId: string
  *  - comparison: string
  *  - modelUsed: "chatgpt" | "medgemma"
- *  - rater: string (USERX)
+ *  - rater: string
+ *  - initialMajorError?: boolean   // ← NEW
  */
 export default function RubricForm({
   disabledInitial = false,
@@ -16,17 +18,19 @@ export default function RubricForm({
   comparison,
   modelUsed,
   rater,
+  initialMajorError = false, // ← NEW
 }) {
   // 7 axes, default 3
   const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3]);
   const [extra, setExtra] = useState("");
-  const [majorError, setMajorError] = useState(false); // ← NEW
+  const [majorError, setMajorError] = useState(!!initialMajorError); // ← NEW
 
   const [saving, setSaving] = useState(false);
   const [locked, setLocked] = useState(!!disabledInitial);
   const [err, setErr] = useState("");
 
   useEffect(() => setLocked(!!disabledInitial), [disabledInitial]);
+  useEffect(() => setMajorError(!!initialMajorError), [initialMajorError]); // keep toggle on reopen
 
   const setAxis = (i, v) =>
     setScores((arr) => {
@@ -35,43 +39,15 @@ export default function RubricForm({
       return copy;
     });
 
-  // EXACT order requested
   const AXES = useMemo(
     () => [
-      {
-        label: "Medical Accuracy & Completeness",
-        title:
-          "All clinically relevant facts present, correct, not hallucinated (symptoms/history/findings/treatment).",
-      },
-      {
-        label: "Clinical Safety & Handover Utility",
-        title:
-          "Safe to hand over (red-flags preserved; exact meds/labs/vitals; no dangerous omissions).",
-      },
-      {
-        label: "Guideline Alignment & Clinical Reasoning",
-        title:
-          "Diagnosis/management align with guidelines; reasoning consistent with medical logic.",
-      },
-      {
-        label: "Language & Terminology Accuracy",
-        title: "Idiomatic Urdu; consistent medical terms; glossary adherence.",
-      },
-      {
-        label: "Structure, Flow & Communication",
-        title:
-          "Clear sectioning (S/O/A/P), chronology, speaker turns, explanations, key patient statements, respectful tone.",
-      },
-      {
-        label: "Communication, Rapport & Patient Engagement",
-        title:
-          "Clarity of explanations, respectful tone, empathy, participation, concerns addressed, education included.",
-      },
-      {
-        label: "Alignment to Source (“traceability”)",
-        title:
-          "Each note sentence traceable to dialogue; unsupported = hallucination/added knowledge.",
-      },
+      { label: "Medical Accuracy & Completeness", title: "All clinically relevant facts present, correct, not hallucinated (symptoms/history/findings/treatment)." },
+      { label: "Clinical Safety & Handover Utility", title: "Safe to hand over (red-flags preserved; exact meds/labs/vitals; no dangerous omissions)." },
+      { label: "Guideline Alignment & Clinical Reasoning", title: "Diagnosis/management align with guidelines; reasoning consistent with medical logic." },
+      { label: "Language & Terminology Accuracy", title: "Idiomatic Urdu; consistent medical terms; glossary adherence." },
+      { label: "Structure, Flow & Communication", title: "Clear sectioning (S/O/A/P), chronology, speaker turns, explanations, key patient statements, respectful tone." },
+      { label: "Communication, Rapport & Patient Engagement", title: "Clarity of explanations, respectful tone, empathy, participation, concerns addressed, education included." },
+      { label: "Alignment to Source (“traceability”)", title: "Each note sentence traceable to dialogue; unsupported = hallucination/added knowledge." },
     ],
     []
   );
@@ -97,9 +73,9 @@ export default function RubricForm({
           axis5: scores[4],
           axis6: scores[5],
           axis7: scores[6],
-          comments: { extra: extra || "" }, // only single extra note
+          comments: { extra: extra || "" },
         },
-        major_error: !!majorError, // ← NEW
+        major_error: !!majorError, // send the flag
       };
 
       const res = await fetch("/api/ratings", {
@@ -130,7 +106,7 @@ export default function RubricForm({
     }
   }
 
-  // Likert: keep compact, bring a bit closer to labels (gap-2)
+  // Keep compact Likert & bring a bit closer to labels
   const Likert = ({ value, onChange, disabled }) => (
     <div className="flex items-center gap-2 text-[13px] select-none">
       {[0, 1, 2, 3, 4, 5].map((n) => (
@@ -151,11 +127,10 @@ export default function RubricForm({
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      {/* Header + right-side switch */}
+      {/* Header + right-side toggle */}
       <div className="flex items-center justify-between">
         <div className="font-semibold">Rubric (0–5)</div>
 
-        {/* Simple toggle; small & unobtrusive */}
         <label className="flex items-center gap-2 text-sm select-none">
           <input
             type="checkbox"
@@ -164,7 +139,6 @@ export default function RubricForm({
             disabled={locked}
             onChange={(e) => setMajorError(e.target.checked)}
           />
-          {/* Switch UI */}
           <span
             className={[
               "relative inline-block h-5 w-9 rounded-full transition-colors",
@@ -184,27 +158,19 @@ export default function RubricForm({
         </label>
       </div>
 
-      {/* Keep compact/scrollable sizing as before */}
+      {/* Scrollable, compact rubric */}
       <div className="max-h-56 overflow-y-auto pr-1">
         <div className="space-y-2">
           {AXES.map((ax, i) => (
-            <div
-              key={ax.label}
-              className="flex items-center justify-between gap-2"
-              title={ax.title}
-            >
+            <div key={ax.label} className="flex items-center justify-between gap-2" title={ax.title}>
               <div className="text-sm">{ax.label}</div>
-              <Likert
-                value={scores[i]}
-                onChange={(v) => setAxis(i, v)}
-                disabled={locked}
-              />
+              <Likert value={scores[i]} onChange={(v) => setAxis(i, v)} disabled={locked} />
             </div>
           ))}
         </div>
       </div>
 
-      {/* Only one optional extra note */}
+      {/* Extra note (single line) */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm">Extra Comments</div>
         <input
