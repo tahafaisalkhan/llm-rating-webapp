@@ -1,17 +1,31 @@
 // src/pages/Home.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import PanelCard from "../components/PanelCard";
 import PreferenceBox from "../components/PreferenceBox";
 import { getRater, clearRater } from "../utils/auth";
 
+// Simple, deterministic 32-bit hash for strings
+function hash32(str) {
+  let h = 2166136261 >>> 0; // FNV-like start
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  // final avalanche
+  h += h << 13; h ^= h >>> 7;
+  h += h << 3;  h ^= h >>> 17;
+  h += h << 5;
+  return h >>> 0;
+}
+
 export default function Home() {
-  const rater = getRater(); // USERX
+  const rater = getRater();
 
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
   // preference UI state per comparison
-  // selected: 0 | 1 | 2  (0 = tie, 1 = set1/gemma, 2 = set2/medgemma)
+  // selected: 0 | 1 | 2  (0 = tie, 1 = left(set1), 2 = right(set2))
   const [selected, setSelected] = useState({}); // { [comparison]: 0|1|2 }
   const [strength, setStrength] = useState({}); // { [comparison]: "weak"|"moderate"|"strong"|null }
   const [locked, setLocked] = useState({});     // { [comparison]: true }
@@ -88,7 +102,7 @@ export default function Home() {
           .catch(() => {});
 
       if (p.chatgpt?.id) {
-        // LEFT column is Gemma (backend label), even though file name is chatgpt.json
+        // LEFT source item (historically chatgpt.json) is labeled GEMMA in backend
         fetches.push(
           handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id)
         );
@@ -112,13 +126,34 @@ export default function Home() {
     setStrength((m) => ({ ...m, ...strEntries }));
   }
 
-  async function submitPref(p) {
-    if (locked[p.comparison]) return;
+  // For each comparison, decide whether to swap left/right deterministically.
+  // If (hash(comparison) & 1) == 1, flip: left = medgemma, right = gemma.
+  const viewPairs = useMemo(() => {
+    return pairs.map((p) => {
+      const flip = ((hash32(String(p.comparison)) & 1) === 1);
+      const left = flip ? p.medgemma : p.chatgpt;
+      const right = flip ? p.chatgpt : p.medgemma;
 
-    // 0 (tie), 1 (set1/gemma), 2 (set2/medgemma)
-    const resVal = selected[p.comparison];
-    const strVal =
-      resVal === 0 ? null : (strength[p.comparison] ?? null);
+      // Which backend labels apply to left/right?
+      const leftModelUsed = flip ? "medgemma" : "gemma";
+      const rightModelUsed = flip ? "gemma" : "medgemma";
+
+      return {
+        comparison: p.comparison,
+        left,
+        right,
+        leftModelUsed,
+        rightModelUsed,
+      };
+    });
+  }, [pairs]);
+
+  async function submitPref(vp) {
+    const comp = vp.comparison;
+    if (locked[comp]) return;
+
+    const resVal = selected[comp]; // 0 (tie), 1 (left), 2 (right)
+    const strVal = resVal === 0 ? null : (strength[comp] ?? null);
 
     if (resVal === undefined) {
       alert("Pick 1, 2, or Tie first.");
@@ -134,21 +169,21 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          comparison: p.comparison,
-          set1Id: p.chatgpt?.id || "",
-          set2Id: p.medgemma?.id || "",
-          result: resVal,          // 0,1,2
-          strength: strVal,        // null for tie
+          comparison: comp,
+          set1Id: vp.left?.id || "",   // set1 = LEFT (deterministic)
+          set2Id: vp.right?.id || "",  // set2 = RIGHT
+          result: resVal,              // 0,1,2
+          strength: strVal,            // null for tie
           rater,
         }),
       });
       if (r.status === 409) {
-        setLocked((m) => ({ ...m, [p.comparison]: true }));
+        setLocked((m) => ({ ...m, [comp]: true }));
         alert("Already submitted for this comparison.");
         return;
       }
       if (!r.ok) throw new Error(await r.text());
-      setLocked((m) => ({ ...m, [p.comparison]: true }));
+      setLocked((m) => ({ ...m, [comp]: true }));
       alert("Preference submitted.");
     } catch (e) {
       console.error(e);
@@ -196,48 +231,49 @@ export default function Home() {
 
       {err && <div className="text-sm text-red-700">{err}</div>}
 
-      {pairs.map((p) => {
-        // keys for maps (backend labels)
-        const set1Key = p.chatgpt?.id ? `gemma:${p.chatgpt.id}` : null;
-        const set2Key = p.medgemma?.id ? `medgemma:${p.medgemma.id}` : null;
+      {viewPairs.map((vp) => {
+        const comp = vp.comparison;
 
-        const set1Rated = set1Key ? !!ratedMap[set1Key] : false;
-        const set2Rated = set2Key ? !!ratedMap[set2Key] : false;
+        // rated/major status derived from actual modelUsed for each side
+        const leftKey = vp.left?.id ? `${vp.leftModelUsed}:${vp.left.id}` : null;
+        const rightKey = vp.right?.id ? `${vp.rightModelUsed}:${vp.right.id}` : null;
 
-        const set1Major = set1Key ? !!majorMap[set1Key] : false;
-        const set2Major = set2Key ? !!majorMap[set2Key] : false;
+        const leftRated = leftKey ? !!ratedMap[leftKey] : false;
+        const rightRated = rightKey ? !!ratedMap[rightKey] : false;
 
-        const comp = p.comparison;
+        const leftMajor = leftKey ? !!majorMap[leftKey] : false;
+        const rightMajor = rightKey ? !!majorMap[rightKey] : false;
+
+        const isLocked = !!locked[comp];
         const sel = selected[comp];
         const str = strength[comp];
-        const isLocked = !!locked[comp];
 
         return (
-          <div key={p.comparison} className="grid grid-cols-3 gap-4 items-start">
-            {/* Set 1 (Gemma) */}
+          <div key={comp} className="grid grid-cols-3 gap-4 items-start">
+            {/* LEFT (Set 1) */}
             <div>
-              {p.chatgpt ? (
+              {vp.left ? (
                 <PanelCard
-                  id={p.chatgpt.id}
-                  datasetid={p.chatgpt.datasetid}
+                  id={vp.left.id}
+                  datasetid={vp.left.datasetid}
                   setLabel="set1"
-                  rated={set1Rated && !set1Major}
-                  major={set1Major}
+                  rated={leftRated && !leftMajor}
+                  major={leftMajor}
                 />
               ) : (
                 <Blank label="No Set 1 item" />
               )}
             </div>
 
-            {/* Set 2 (MedGemma) */}
+            {/* RIGHT (Set 2) */}
             <div>
-              {p.medgemma ? (
+              {vp.right ? (
                 <PanelCard
-                  id={p.medgemma.id}
-                  datasetid={p.medgemma.datasetid}
+                  id={vp.right.id}
+                  datasetid={vp.right.datasetid}
                   setLabel="set2"
-                  rated={set2Rated && !set2Major}
-                  major={set2Major}
+                  rated={rightRated && !rightMajor}
+                  major={rightMajor}
                 />
               ) : (
                 <Blank label="No Set 2 item" />
@@ -248,18 +284,18 @@ export default function Home() {
             <div className="flex items-center justify-center">
               <PreferenceBox
                 locked={isLocked}
-                selected={sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined}
+                selected={
+                  sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined
+                }
                 setSelected={(val) => {
-                  // normalize to 0/1/2 in state
-                  const normalized = val === "tie" ? 0 : val;
+                  const normalized = val === "tie" ? 0 : val; // map to 0/1/2
                   setSelected((m) => ({ ...m, [comp]: normalized }));
-                  // if choosing 1/2 and no strength yet, leave strength as-is (user will pick)
                 }}
                 strength={str || null}
                 setStrength={(val) =>
                   setStrength((m) => ({ ...m, [comp]: val }))
                 }
-                onSubmit={() => submitPref(p)}
+                onSubmit={() => submitPref(vp)}
               />
             </div>
           </div>
