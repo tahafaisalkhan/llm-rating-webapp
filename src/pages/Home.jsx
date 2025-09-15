@@ -28,7 +28,7 @@ export default function Home() {
 
   const [ratedMap, setRatedMap] = useState({});
   const [majorMap, setMajorMap] = useState({});
-  const [scoreMap, setScoreMap] = useState({}); // ← NEW: panel score totals
+  const [scoreMap, setScoreMap] = useState({}); // ← panel score totals
 
   useEffect(() => {
     (async () => {
@@ -50,7 +50,7 @@ export default function Home() {
   async function checkStatuses(rows) {
     const ratedEntries = {};
     const majorEntries = {};
-    const scoreEntries = {};   // ← NEW
+    const scoreEntries = {};
     const submitted = {};
     const selEntries = {};
     const strEntries = {};
@@ -90,7 +90,7 @@ export default function Home() {
             if (j?.exists) {
               ratedEntries[key] = true;
               if (j.major_error) majorEntries[key] = true;
-              if (typeof j.total === "number") scoreEntries[key] = j.total; // ← NEW
+              if (typeof j.total === "number") scoreEntries[key] = j.total;
             }
           })
           .catch(() => {});
@@ -106,7 +106,7 @@ export default function Home() {
     await Promise.all(fetches);
     setRatedMap(ratedEntries);
     setMajorMap(majorEntries);
-    setScoreMap(scoreEntries);      // ← NEW
+    setScoreMap(scoreEntries);
     setSubmittedMap(submitted);
     setSelected((m) => ({ ...m, ...selEntries }));
     setStrength((m) => ({ ...m, ...strEntries }));
@@ -160,7 +160,6 @@ export default function Home() {
         }),
       });
 
-      // Refresh so button text and panel colors/scores stay correct
       await checkStatuses(pairs);
       alert("Preference submitted.");
     } catch (e) {
@@ -172,9 +171,12 @@ export default function Home() {
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
       <div className="flex items-center justify-between mb-2">
+        {/* CHANGED: link now points to Google Drive and opens in a new tab */}
         <a
-          href="/rubric"
-          className="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          href="https://drive.google.com/file/d/1lCHpJ-nyQmClnzvWNcsa_LOpegXOhUPP/view?usp=drive_link"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm underline text-gray-600 hover:text-black"
         >
           Scoring Rubric
         </a>
@@ -219,8 +221,8 @@ export default function Home() {
         const leftMajor = leftKey ? !!majorMap[leftKey] : false;
         const rightMajor = rightKey ? !!majorMap[rightKey] : false;
 
-        const leftScore = leftKey ? scoreMap[leftKey] : undefined;   // ← NEW
-        const rightScore = rightKey ? scoreMap[rightKey] : undefined; // ← NEW
+        const leftScore = leftKey ? scoreMap[leftKey] : undefined;
+        const rightScore = rightKey ? scoreMap[rightKey] : undefined;
 
         const sel = selected[comp];
         const str = strength[comp];
@@ -235,7 +237,7 @@ export default function Home() {
                   setLabel="set1"
                   rated={leftRated && !leftMajor}
                   major={leftMajor}
-                  score={leftScore}     // ← NEW
+                  score={leftScore}
                 />
               ) : (
                 <Blank label="No Set 1 item" />
@@ -250,7 +252,7 @@ export default function Home() {
                   setLabel="set2"
                   rated={rightRated && !rightMajor}
                   major={rightMajor}
-                  score={rightScore}    // ← NEW
+                  score={rightScore}
                 />
               ) : (
                 <Blank label="No Set 2 item" />
