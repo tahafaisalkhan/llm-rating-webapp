@@ -40,8 +40,9 @@ function normalizeMed(row) {
   const base = normalizeCommon(row);
   return {
     ...base,
-    medDial: pick(row, "Med Dial", "Med Dialogue", "MedGemma Dial", "MedGemma Dialogue"),
-    medNote: pick(row, "Med Note", "MedGemma Note"),
+    // supports new & legacy Med columns
+    medDial: pick(row, "MedG Dial", "Med Dial", "Med Dialogue", "MedGemma Dial", "MedGemma Dialogue"),
+    medNote: pick(row, "MedG Note", "Med Note", "MedGemma Note"),
   };
 }
 
@@ -49,8 +50,9 @@ function normalizeChatGPT(row) {
   const base = normalizeCommon(row);
   return {
     ...base,
-    chatgptDial: pick(row, "ChatGPT Dial", "ChatGPT Dialogue"),
-    chatgptNote: pick(row, "ChatGPT Note"),
+    // UPDATED: support new ChatGPT column names with fallbacks
+    chatgptDial: pick(row, "ChatG Dial", "ChatG Dialogue", "GPT Dial", "GPT Dialogue", "ChatGPT Dial", "ChatGPT Dialogue"),
+    chatgptNote: pick(row, "ChatG Note", "GPT Note", "ChatGPT Note"),
   };
 }
 
@@ -69,28 +71,54 @@ function convert() {
   fs.writeFileSync(path.join(OUT_DIR, "medgemma.json"), JSON.stringify(medRows, null, 2));
   fs.writeFileSync(path.join(OUT_DIR, "chatgpt.json"), JSON.stringify(cgRows, null, 2));
 
-  // Build pairs keyed by `comparison`
-  const byCompMed = new Map(medRows.map(r => [r.comparison || r.id, r]));
-  const byCompCg  = new Map(cgRows.map(r => [r.comparison || r.id, r]));
-  const keys = Array.from(new Set([...byCompMed.keys(), ...byCompCg.keys()]));
+  // Pair by BOTH comparison and datasetid, then take only first 50
+  const keyOf = (r) => {
+    const comp = String((r.comparison ?? "").toString().trim());
+    const dsid = String((r.datasetid ?? "").toString().trim());
+    return `${comp}:::${dsid}`;
+  };
 
-  // numeric-aware sort, fallback to lexical
+  const byKeyMed = new Map(
+    medRows
+      .filter(r => r.comparison !== "" && r.datasetid !== "")
+      .map(r => [keyOf(r), r])
+  );
+  const byKeyCg = new Map(
+    cgRows
+      .filter(r => r.comparison !== "" && r.datasetid !== "")
+      .map(r => [keyOf(r), r])
+  );
+
+  const keys = Array.from(byKeyMed.keys()).filter(k => byKeyCg.has(k));
+
+  // numeric-aware sort by comparison, then datasetid
   keys.sort((a, b) => {
-    const na = Number(a), nb = Number(b);
-    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-    return String(a).localeCompare(String(b));
+    const [ac, ad] = a.split(":::");
+    const [bc, bd] = b.split(":::");
+    const na = Number(ac), nb = Number(bc);
+    if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+    if (!Number.isNaN(na) && Number.isNaN(nb)) return -1;
+    if (Number.isNaN(na) && !Number.isNaN(nb)) return 1;
+    if (ac !== bc) return String(ac).localeCompare(String(bc));
+    return String(ad).localeCompare(String(bd));
   });
 
-  const paired = keys.map(k => ({
-    comparison: String(k),
-    chatgpt: byCompCg.get(k) || null,
-    medgemma: byCompMed.get(k) || null
-  }));
+  const limitedKeys = keys.slice(0, 50);
+
+  const paired = limitedKeys.map(k => {
+    const [comparison, datasetid] = k.split(":::");
+    return {
+      comparison: String(comparison),
+      datasetid: String(datasetid),
+      chatgpt: byKeyCg.get(k) || null,
+      medgemma: byKeyMed.get(k) || null
+    };
+  });
 
   fs.writeFileSync(path.join(OUT_DIR, "paired.json"), JSON.stringify(paired, null, 2));
 
   console.log(
-    `✅ Wrote ${medRows.length} medgemma rows, ${cgRows.length} chatgpt rows, and ${paired.length} pairs to public/data/`
+    `✅ Wrote ${medRows.length} medgemma rows, ${cgRows.length} chatgpt rows, and ${paired.length} pairs (first 50 by comparison+datasetid) to public/data/`
   );
 }
 
