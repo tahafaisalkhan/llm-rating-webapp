@@ -31,9 +31,9 @@ export default function PanelCard({ id, datasetid, setLabel, rated, major = fals
         <div className="text-xs text-gray-500">
           {setLabel === "set1" ? "Set 1" : "Set 2"}
         </div>
-
-        {/* Removed ID line */}
-
+        <div className="mt-2 text-sm">
+          <b>Press for Data</b>
+        </div>
         <div className="text-sm">
           <b>DatasetID:</b> {datasetid || "-"}
         </div>
