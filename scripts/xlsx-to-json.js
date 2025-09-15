@@ -50,9 +50,9 @@ function normalizeChatGPT(row) {
   const base = normalizeCommon(row);
   return {
     ...base,
-    // UPDATED: support new ChatGPT column names with fallbacks
-    chatgptDial: pick(row, "ChatG Dial", "ChatG Dialogue", "GPT Dial", "GPT Dialogue", "ChatGPT Dial", "ChatGPT Dialogue"),
-    chatgptNote: pick(row, "ChatG Note", "GPT Note", "ChatGPT Note"),
+    // CHANGED: ChatGPT file now uses "Med Dial" / "Med Note"
+    chatgptDial: pick(row, "Med Dial"),
+    chatgptNote: pick(row, "Med Note"),
   };
 }
 
