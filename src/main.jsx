@@ -18,13 +18,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
-        {/* default root → login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-
         <Route path="/login" element={<Login />} />
-
         <Route
-          path="/home"
+          path="/"
           element={
             <RequireAuth>
               <Home />
