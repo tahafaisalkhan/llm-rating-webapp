@@ -14,14 +14,6 @@ const PreferenceSchema = new mongoose.Schema(
 
     // 0 = tie, 1 = set1, 2 = set2
     result: { type: Number, enum: [0, 1, 2], required: true },
-
-    // Strength of preference (only meaningful when result !== 0)
-    // We allow null to make it easy to omit for ties.
-    strength: {
-      type: String,
-      enum: ["weak", "moderate", "strong", null],
-      default: null,
-    },
   },
   { timestamps: true }
 );

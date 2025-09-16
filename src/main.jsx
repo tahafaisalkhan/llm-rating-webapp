@@ -26,7 +26,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Home />
             </RequireAuth>
           }
-        />
+        />i
         <Route
           path="/item/:id/:set"
           element={

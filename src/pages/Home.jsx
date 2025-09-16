@@ -1,4 +1,3 @@
-// src/pages/Home.jsx
 import { useEffect, useState, useMemo } from "react";
 import PanelCard from "../components/PanelCard";
 import PreferenceBox from "../components/PreferenceBox";
@@ -23,12 +22,11 @@ export default function Home() {
   const [err, setErr] = useState("");
 
   const [selected, setSelected] = useState({});
-  const [strength, setStrength] = useState({});
   const [submittedMap, setSubmittedMap] = useState({});
 
   const [ratedMap, setRatedMap] = useState({});
   const [majorMap, setMajorMap] = useState({});
-  const [scoreMap, setScoreMap] = useState({}); // ← panel score totals
+  const [scoreMap, setScoreMap] = useState({});
 
   useEffect(() => {
     (async () => {
@@ -53,7 +51,6 @@ export default function Home() {
     const scoreEntries = {};
     const submitted = {};
     const selEntries = {};
-    const strEntries = {};
     const fetches = [];
 
     for (const p of rows) {
@@ -70,8 +67,6 @@ export default function Home() {
               if ([0, 1, 2].includes(Number(j.result))) {
                 selEntries[p.comparison] = Number(j.result);
               }
-              strEntries[p.comparison] =
-                Number(j.result) === 0 ? null : (j.strength ?? null);
             }
           })
           .catch(() => {})
@@ -109,7 +104,6 @@ export default function Home() {
     setScoreMap(scoreEntries);
     setSubmittedMap(submitted);
     setSelected((m) => ({ ...m, ...selEntries }));
-    setStrength((m) => ({ ...m, ...strEntries }));
   }
 
   const viewPairs = useMemo(() => {
@@ -135,14 +129,8 @@ export default function Home() {
     const comp = vp.comparison;
 
     const resVal = selected[comp];
-    const strVal = resVal === 0 ? null : (strength[comp] ?? null);
-
     if (resVal === undefined) {
       alert("Pick 1, 2, or Tie first.");
-      return;
-    }
-    if (resVal !== 0 && !strVal) {
-      alert("Select preference strength (Weak/Moderate/Strong).");
       return;
     }
 
@@ -155,7 +143,6 @@ export default function Home() {
           set1Id: vp.left?.id || "",
           set2Id: vp.right?.id || "",
           result: resVal,
-          strength: strVal,
           rater,
         }),
       });
@@ -171,7 +158,6 @@ export default function Home() {
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
       <div className="flex items-center justify-between mb-2">
-        {/* CHANGED: link now points to Google Drive and opens in a new tab */}
         <a
           href="https://drive.google.com/file/d/1lCHpJ-nyQmClnzvWNcsa_LOpegXOhUPP/view?usp=drive_link"
           target="_blank"
@@ -225,7 +211,6 @@ export default function Home() {
         const rightScore = rightKey ? scoreMap[rightKey] : undefined;
 
         const sel = selected[comp];
-        const str = strength[comp];
 
         return (
           <div key={comp} className="grid grid-cols-3 gap-4 items-start">
@@ -267,8 +252,6 @@ export default function Home() {
                   const normalized = val === "tie" ? 0 : val;
                   setSelected((m) => ({ ...m, [comp]: normalized }));
                 }}
-                strength={str || null}
-                setStrength={(val) => setStrength((m) => ({ ...m, [comp]: val }))}
                 onSubmit={() => submitPref(vp)}
               />
             </div>
