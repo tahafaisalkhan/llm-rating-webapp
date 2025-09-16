@@ -155,20 +155,9 @@ app.post("/api/preferences", async (req, res) => {
   }
 });
 
-/** GET /api/preferences/status?comparison=...&rater=... */
-app.get("/api/preferences/status", async (req, res) => {
-  try {
-    const { comparison, rater } = req.query;
-    if (!comparison || !rater) return res.json({ exists: false });
-
-    const hit = await Preference.findOne({ comparison, rater }).lean();
-    if (!hit) return res.json({ exists: false });
-
-    res.json({ exists: true, result: hit.result, strength: hit.strength ?? null });
-  } catch (e) {
-    console.error("GET /api/preferences/status error:", e);
-    res.json({ exists: false });
-  }
+/** ---------- Default route redirect to /login ---------- */
+app.get("/", (_req, res) => {
+  res.redirect("/login");
 });
 
 /** -------------- Serve SPA -------------- */
