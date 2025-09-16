@@ -7,10 +7,11 @@ export default function Detail() {
   const { id, set } = useParams(); // "set1" | "set2"
   const navigate = useNavigate();
 
-  const [cg, setCg] = useState(null); // still loading from chatgpt.json (Gemma content)
+  const [cg, setCg] = useState(null); // chatgpt.json (Gemma content)
   const [mg, setMg] = useState(null);
   const [err, setErr] = useState("");
   const [already, setAlready] = useState(false);
+  const [score, setScore] = useState(null); // ← added
 
   const rater = getRater() || "";
 
@@ -35,6 +36,7 @@ export default function Detail() {
         );
         const j = res.ok ? await res.json() : { exists: false };
         setAlready(!!j.exists);
+        if (j && typeof j.total === "number") setScore(j.total); // ← added
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load.");
@@ -57,7 +59,15 @@ export default function Detail() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-4">
-        <button onClick={() => navigate(-1)} className="text-sm text-blue-600 hover:underline">← Back</button>
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm text-blue-600 hover:underline"
+        >
+          ← Back
+        </button>
+        {score != null && (
+          <div className="text-sm font-semibold">Score: {score}/35</div>
+        )}
         {err && <div className="text-sm text-red-700">{err}</div>}
       </div>
 
@@ -67,7 +77,9 @@ export default function Detail() {
           <div className="p-4 border-b flex items-center justify-between">
             <div>
               <div className="text-xs text-gray-500">English</div>
-              <div className="mt-1 font-semibold">{engTab === "dialogue" ? "Original Dialogue" : "Original Note"}</div>
+              <div className="mt-1 font-semibold">
+                {engTab === "dialogue" ? "Original Dialogue" : "Original Note"}
+              </div>
             </div>
             <button
               onClick={() => setEngTab(engTab === "dialogue" ? "note" : "dialogue")}
@@ -79,9 +91,13 @@ export default function Detail() {
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-3">
             {engTab === "dialogue" ? (
-              <pre className="whitespace-pre-wrap leading-relaxed text-[15px]">{originalDialogue || "(No dialogue found)"}</pre>
+              <pre className="whitespace-pre-wrap leading-relaxed text-[15px]">
+                {originalDialogue || "(No dialogue found)"}
+              </pre>
             ) : (
-              <pre className="whitespace-pre-wrap leading-relaxed text-[14px]">{originalNote || "(No note)"}</pre>
+              <pre className="whitespace-pre-wrap leading-relaxed text-[14px]">
+                {originalNote || "(No note)"}
+              </pre>
             )}
           </div>
         </div>
@@ -90,8 +106,12 @@ export default function Detail() {
         <div className="border rounded-2xl bg-white flex flex-col overflow-hidden" dir="rtl">
           <div className="p-4 border-b flex items-center justify-between" dir="ltr">
             <div>
-              <div className="text-xs text-gray-500">Urdu ({set === "set1" ? "Set 1" : "Set 2"})</div>
-              <div className="mt-1 font-semibold">{urdTab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}</div>
+              <div className="text-xs text-gray-500">
+                Urdu ({set === "set1" ? "Set 1" : "Set 2"})
+              </div>
+              <div className="mt-1 font-semibold">
+                {urdTab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
+              </div>
             </div>
             <button
               onClick={() => setUrdTab(urdTab === "dialogue" ? "note" : "dialogue")}
@@ -103,9 +123,13 @@ export default function Detail() {
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-3">
             {urdTab === "dialogue" ? (
-              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq text-xl leading-loose">{urduDialogue || "(No Urdu)"}</pre>
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq text-xl leading-loose">
+                {urduDialogue || "(No Urdu)"}
+              </pre>
             ) : (
-              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed">{urduNote || "(No note)"}</pre>
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed">
+                {urduNote || "(No note)"}
+              </pre>
             )}
           </div>
         </div>
@@ -118,7 +142,7 @@ export default function Detail() {
           itemId={id}
           datasetId={datasetId}
           comparison={comparison}
-          modelUsed={modelUsed}   // ← now gemma|medgemma
+          modelUsed={modelUsed}
           rater={rater}
         />
       </div>

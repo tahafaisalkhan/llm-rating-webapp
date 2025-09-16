@@ -10,12 +10,9 @@ import { Link } from "react-router-dom";
  *  - major?: boolean            (true => major error)
  *  - score?: number             (0–35) total score to display
  */
-export default function PanelCard({ id, datasetid, setLabel, rated, major = false, score }) {
+export default function PanelCard({ id, datasetid, setLabel, rated, major = false }) {
   const href = `/item/${encodeURIComponent(id)}/${setLabel}`;
-  const submittedText =
-    typeof score === "number"
-      ? `✓ Submitted (Score Given: ${score}/35)`
-      : "✓ Submitted";
+  const submittedText = "✓ Submitted"; // ← no score here anymore
 
   return (
     <Link to={href} className="block">
