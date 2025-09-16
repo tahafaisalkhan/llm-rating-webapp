@@ -8,7 +8,6 @@ import { useEffect, useMemo, useState } from "react";
  *  - comparison: string
  *  - modelUsed: "gemma" | "medgemma"
  *  - rater: string
- *  - initialMajorError?: boolean
  */
 export default function RubricForm({
   disabledInitial = false,
@@ -17,19 +16,16 @@ export default function RubricForm({
   comparison,
   modelUsed,
   rater,
-  initialMajorError = false,
 }) {
   // 7 axes, default 3
   const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3]);
   const [extra, setExtra] = useState("");
-  const [majorError, setMajorError] = useState(!!initialMajorError);
 
   const [saving, setSaving] = useState(false);
   const [locked, setLocked] = useState(!!disabledInitial);
   const [err, setErr] = useState("");
 
   useEffect(() => setLocked(!!disabledInitial), [disabledInitial]);
-  useEffect(() => setMajorError(!!initialMajorError), [initialMajorError]);
 
   const setAxis = (i, v) =>
     setScores((arr) => {
@@ -73,7 +69,6 @@ export default function RubricForm({
           axis7: scores[6],
           comments: { extra: extra || "" },
         },
-        major_error: !!majorError,
       };
 
       const res = await fetch("/api/ratings", {
@@ -117,31 +112,9 @@ export default function RubricForm({
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      {/* Header + toggle */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="font-semibold">Rubric (0–5)</div>
-        <label className="flex items-center gap-2 text-sm select-none">
-          <input
-            type="checkbox"
-            className="peer sr-only"
-            checked={majorError}
-            onChange={(e) => setMajorError(e.target.checked)}
-          />
-          <span
-            className={[
-              "relative inline-block h-5 w-9 rounded-full transition-colors",
-              majorError ? "bg-red-600" : "bg-gray-300",
-            ].join(" ")}
-          >
-            <span
-              className={[
-                "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform",
-                majorError ? "translate-x-4" : "",
-              ].join(" ")}
-            />
-          </span>
-          <span>Major Clinical Error</span>
-        </label>
       </div>
 
       <div className="max-h-56 overflow-y-auto pr-1">

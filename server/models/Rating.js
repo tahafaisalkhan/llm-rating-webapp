@@ -8,12 +8,12 @@ const RatingSchema = new mongoose.Schema(
     datasetId: { type: String, default: "" },
     modelUsed: {
       type: String,
-      enum: ["gemma", "medgemma", "unknown"],       // ← chatgpt -> gemma
+      enum: ["gemma", "medgemma", "unknown"],       // chatgpt -> gemma
       required: true,
     },
     comparison: { type: String, default: "" },
 
-    // 7-axis rubric + extra comment (as you already use)
+    // 7-axis rubric + extra comment
     scores: {
       axis1: { type: Number, min: 0, max: 5, required: true },
       axis2: { type: Number, min: 0, max: 5, required: true },
@@ -33,9 +33,6 @@ const RatingSchema = new mongoose.Schema(
         extra: { type: String, default: "" },
       },
     },
-
-    // major error flag (used for red panel)
-    major_error: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

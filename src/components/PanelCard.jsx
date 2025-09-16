@@ -6,23 +6,17 @@ import { Link } from "react-router-dom";
  *  - id: string
  *  - datasetid: string
  *  - setLabel: "set1" | "set2"
- *  - rated: boolean              (true => already submitted and not major)
- *  - major?: boolean            (true => major error)
- *  - score?: number             (0–35) total score to display
+ *  - rated: boolean              (true => already submitted)
  */
-export default function PanelCard({ id, datasetid, setLabel, rated, major = false }) {
+export default function PanelCard({ id, datasetid, setLabel, rated }) {
   const href = `/item/${encodeURIComponent(id)}/${setLabel}`;
-  const submittedText = "✓ Submitted"; // ← no score here anymore
+  const submittedText = "✓ Submitted";
 
   return (
     <Link to={href} className="block">
       <div
         className={`border rounded p-4 transition ${
-          major
-            ? "bg-red-100 border-red-400"
-            : rated
-            ? "bg-green-100 border-green-400"
-            : "bg-white hover:shadow"
+          rated ? "bg-green-100 border-green-400" : "bg-white hover:shadow"
         }`}
       >
         <div className="text-xs text-gray-500">
@@ -35,12 +29,8 @@ export default function PanelCard({ id, datasetid, setLabel, rated, major = fals
           <b>DatasetID:</b> {datasetid || "-"}
         </div>
 
-        {(rated || major) && (
-          <div
-            className={`mt-1 text-xs font-semibold ${
-              major ? "text-red-700" : "text-green-700"
-            }`}
-          >
+        {rated && (
+          <div className="mt-1 text-xs font-semibold text-green-700">
             {submittedText}
           </div>
         )}

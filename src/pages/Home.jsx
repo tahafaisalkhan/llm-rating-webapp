@@ -25,7 +25,6 @@ export default function Home() {
   const [submittedMap, setSubmittedMap] = useState({});
 
   const [ratedMap, setRatedMap] = useState({});
-  const [majorMap, setMajorMap] = useState({});
   const [scoreMap, setScoreMap] = useState({});
 
   useEffect(() => {
@@ -47,7 +46,6 @@ export default function Home() {
 
   async function checkStatuses(rows) {
     const ratedEntries = {};
-    const majorEntries = {};
     const scoreEntries = {};
     const submitted = {};
     const selEntries = {};
@@ -84,7 +82,6 @@ export default function Home() {
           .then((j) => {
             if (j?.exists) {
               ratedEntries[key] = true;
-              if (j.major_error) majorEntries[key] = true;
               if (typeof j.total === "number") scoreEntries[key] = j.total;
             }
           })
@@ -100,7 +97,6 @@ export default function Home() {
 
     await Promise.all(fetches);
     setRatedMap(ratedEntries);
-    setMajorMap(majorEntries);
     setScoreMap(scoreEntries);
     setSubmittedMap(submitted);
     setSelected((m) => ({ ...m, ...selEntries }));
@@ -204,9 +200,6 @@ export default function Home() {
         const leftRated = leftKey ? !!ratedMap[leftKey] : false;
         const rightRated = rightKey ? !!ratedMap[rightKey] : false;
 
-        const leftMajor = leftKey ? !!majorMap[leftKey] : false;
-        const rightMajor = rightKey ? !!majorMap[rightKey] : false;
-
         const leftScore = leftKey ? scoreMap[leftKey] : undefined;
         const rightScore = rightKey ? scoreMap[rightKey] : undefined;
 
@@ -220,8 +213,7 @@ export default function Home() {
                   id={vp.left.id}
                   datasetid={vp.left.datasetid}
                   setLabel="set1"
-                  rated={leftRated && !leftMajor}
-                  major={leftMajor}
+                  rated={leftRated}
                   score={leftScore}
                 />
               ) : (
@@ -235,8 +227,7 @@ export default function Home() {
                   id={vp.right.id}
                   datasetid={vp.right.datasetid}
                   setLabel="set2"
-                  rated={rightRated && !rightMajor}
-                  major={rightMajor}
+                  rated={rightRated}
                   score={rightScore}
                 />
               ) : (

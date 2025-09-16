@@ -47,10 +47,10 @@ function totalScore(scores) {
   return sum;
 }
 
-/** POST /api/ratings  (now UPSERTS to allow resubmission) */
+/** POST /api/ratings  (UPSERT) */
 app.post("/api/ratings", async (req, res) => {
   try {
-    const { rater, modelId, datasetId, modelUsed, comparison, scores, major_error } = req.body || {};
+    const { rater, modelId, datasetId, modelUsed, comparison, scores } = req.body || {};
     const modelUsedNorm = normalizeModelUsed(modelUsed);
     if (!rater || !modelId || !modelUsedNorm || !scores) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -63,7 +63,6 @@ app.post("/api/ratings", async (req, res) => {
         datasetId: datasetId || "",
         comparison: comparison || "",
         scores,
-        major_error: !!major_error,
         updatedAt: new Date(),
       },
       $setOnInsert: { createdAt: new Date() },
@@ -79,7 +78,6 @@ app.post("/api/ratings", async (req, res) => {
       ok: true,
       id: doc._id,
       total: totalScore(doc.scores),
-      major_error: !!doc.major_error,
     });
   } catch (e) {
     console.error("POST /api/ratings error:", e);
@@ -99,7 +97,6 @@ app.get("/api/ratings/status", async (req, res) => {
 
     res.json({
       exists: true,
-      major_error: !!hit.major_error,
       total: totalScore(hit.scores), // x out of 35
     });
   } catch (e) {
@@ -109,7 +106,7 @@ app.get("/api/ratings/status", async (req, res) => {
 });
 
 /** ----------------- PREFERENCES ----------------- */
-/** POST /api/preferences  (now UPSERTS to allow resubmission) */
+/** POST /api/preferences  (UPSERT) */
 app.post("/api/preferences", async (req, res) => {
   try {
     const { rater, comparison, set1Id, set2Id, result, strength } = req.body || {};
