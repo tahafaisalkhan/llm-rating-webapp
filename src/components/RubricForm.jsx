@@ -17,8 +17,8 @@ export default function RubricForm({
   modelUsed,
   rater,
 }) {
-  // 7 axes, default 3
-  const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3]);
+  // 8 axes, default 3
+  const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3, 3]);
   const [extra, setExtra] = useState("");
 
   const [saving, setSaving] = useState(false);
@@ -36,13 +36,14 @@ export default function RubricForm({
 
   const AXES = useMemo(
     () => [
-      { label: "Medical Accuracy & Completeness", title: "All clinically relevant facts present, correct, not hallucinated (symptoms/history/findings/treatment)." },
-      { label: "Clinical Safety & Handover Utility", title: "Safe to hand over (red-flags preserved; exact meds/labs/vitals; no dangerous omissions)." },
-      { label: "Guideline Alignment & Clinical Reasoning", title: "Diagnosis/management align with guidelines; reasoning consistent with medical logic." },
-      { label: "Language & Terminology Accuracy", title: "Idiomatic Urdu; consistent medical terms; glossary adherence." },
-      { label: "Structure, Flow & Communication", title: "Clear sectioning (S/O/A/P), chronology, speaker turns, explanations, key patient statements, respectful tone." },
-      { label: "Communication, Rapport & Patient Engagement", title: "Clarity of explanations, respectful tone, empathy, participation, concerns addressed, education included." },
-      { label: "Alignment to Source (“traceability”)", title: "Each note sentence traceable to dialogue; unsupported = hallucination/added knowledge." },
+      { label: "Medical Accuracy", title: "All clinically relevant facts present, correct, not hallucinated (symptoms/history/findings/treatment)." },
+      { label: "Clinical Safety for Handover Utility", title: "Safe to hand over (red-flags preserved; exact meds/labs/vitals; no dangerous omissions)." },
+      { label: "Clinical Reasoning", title: "Diagnosis/management align with standards; reasoning consistent with medical logic." },
+      { label: "Linguistic Correctness (Urdu/English)", title: "Idiomatic Urdu; grammar/spelling/punctuation accurate." },
+      { label: "Precision in Medical Terminology", title: "Consistent terminology; accurate medication/diagnosis names; clinical nuances preserved." },
+      { label: "Structure & Flow", title: "Clear sectioning (S/O/A/P), chronology, speaker turns; coherent and easy to follow." },
+      { label: "Patient Interaction & Communication", title: "Respectful tone, empathy; clear explanations; patient voice preserved." },
+      { label: "Alignment to Source (“Traceability”)", title: "Each sentence traceable to dialogue; no unsupported content/hallucinations." },
     ],
     []
   );
@@ -67,7 +68,8 @@ export default function RubricForm({
           axis5: scores[4],
           axis6: scores[5],
           axis7: scores[6],
-          comments: { extra: extra || "" },
+          axis8: scores[7],
+          comments: { extra: extra || "" }, // single comment box only
         },
       };
 

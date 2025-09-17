@@ -38,7 +38,7 @@ function normalizeModelUsed(v) {
 /** ----------------- RATINGS ----------------- */
 /** Sum 0–5 axes safely (missing -> 0) */
 function totalScore(scores) {
-  const axes = ["axis1","axis2","axis3","axis4","axis5","axis6","axis7"];
+  const axes = ["axis1","axis2","axis3","axis4","axis5","axis6","axis7","axis8"];
   let sum = 0;
   for (const k of axes) {
     const v = Number(scores?.[k]);
@@ -77,7 +77,7 @@ app.post("/api/ratings", async (req, res) => {
     return res.status(200).json({
       ok: true,
       id: doc._id,
-      total: totalScore(doc.scores),
+      total: totalScore(doc.scores), // now out of 40
     });
   } catch (e) {
     console.error("POST /api/ratings error:", e);
@@ -97,7 +97,7 @@ app.get("/api/ratings/status", async (req, res) => {
 
     res.json({
       exists: true,
-      total: totalScore(hit.scores), // x out of 35
+      total: totalScore(hit.scores), // now out of 40
     });
   } catch (e) {
     console.error("GET /api/ratings/status error:", e);
