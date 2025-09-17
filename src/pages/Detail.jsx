@@ -66,7 +66,7 @@ export default function Detail() {
           ← Back
         </button>
         {score != null && (
-          <div className="text-sm font-semibold">Score: {score}/35</div>
+          <div className="text-sm font-semibold">Score: {score}/40</div>
         )}
         {err && <div className="text-sm text-red-700">{err}</div>}
       </div>
