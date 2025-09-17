@@ -8,6 +8,8 @@ import { useEffect, useMemo, useState } from "react";
  *  - comparison: string
  *  - modelUsed: "gemma" | "medgemma"
  *  - rater: string
+ *  - score: number | null
+ *  - setScore: function (to update score in parent)
  */
 export default function RubricForm({
   disabledInitial = false,
@@ -16,6 +18,8 @@ export default function RubricForm({
   comparison,
   modelUsed,
   rater,
+  score,
+  setScore,
 }) {
   // 8 axes, default 3
   const [scores, setScores] = useState([3, 3, 3, 3, 3, 3, 3, 3]);
@@ -36,14 +40,14 @@ export default function RubricForm({
 
   const AXES = useMemo(
     () => [
-      { label: "Medical Accuracy", title: "All clinically relevant facts present, correct, not hallucinated (symptoms/history/findings/treatment)." },
-      { label: "Clinical Safety for Handover Utility", title: "Safe to hand over (red-flags preserved; exact meds/labs/vitals; no dangerous omissions)." },
-      { label: "Clinical Reasoning", title: "Diagnosis/management align with standards; reasoning consistent with medical logic." },
-      { label: "Linguistic Correctness (Urdu/English)", title: "Idiomatic Urdu; grammar/spelling/punctuation accurate." },
-      { label: "Precision in Medical Terminology", title: "Consistent terminology; accurate medication/diagnosis names; clinical nuances preserved." },
-      { label: "Structure & Flow", title: "Clear sectioning (S/O/A/P), chronology, speaker turns; coherent and easy to follow." },
-      { label: "Patient Interaction & Communication", title: "Respectful tone, empathy; clear explanations; patient voice preserved." },
-      { label: "Alignment to Source (“Traceability”)", title: "Each sentence traceable to dialogue; no unsupported content/hallucinations." },
+      { label: "Medical Accuracy", title: "" },
+      { label: "Clinical Safety for Handover Utility", title: "" },
+      { label: "Clinical Reasoning", title: "" },
+      { label: "Linguistic Correctness (Urdu/English)", title: "" },
+      { label: "Precision in Medical Terminology", title: "" },
+      { label: "Structure & Flow", title: "" },
+      { label: "Patient Interaction & Communication", title: "" },
+      { label: "Alignment to Source (“Traceability”)", title: "" },
     ],
     []
   );
@@ -69,7 +73,7 @@ export default function RubricForm({
           axis6: scores[5],
           axis7: scores[6],
           axis8: scores[7],
-          comments: { extra: extra || "" }, // single comment box only
+          comments: { extra: extra || "" },
         },
       };
 
@@ -82,6 +86,11 @@ export default function RubricForm({
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || "Server error");
+      }
+
+      const j = await res.json();
+      if (j && typeof j.total === "number" && setScore) {
+        setScore(j.total); // ← update score immediately
       }
 
       setLocked(true);
@@ -143,13 +152,18 @@ export default function RubricForm({
 
       {err && <div className="text-sm text-red-700">{err}</div>}
 
-      <button
-        type="submit"
-        className="bg-black text-white rounded px-4 py-2 font-semibold disabled:opacity-60"
-        disabled={saving}
-      >
-        {saving ? "Submitting…" : locked ? "Resubmit" : "Submit"}
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          type="submit"
+          className="bg-black text-white rounded px-4 py-2 font-semibold disabled:opacity-60"
+          disabled={saving}
+        >
+          {saving ? "Submitting…" : locked ? "Resubmit" : "Submit"}
+        </button>
+        {score != null && (
+          <div className="text-sm font-semibold">Score: {score}/40</div>
+        )}
+      </div>
     </form>
   );
 }

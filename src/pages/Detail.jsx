@@ -11,7 +11,7 @@ export default function Detail() {
   const [mg, setMg] = useState(null);
   const [err, setErr] = useState("");
   const [already, setAlready] = useState(false);
-  const [score, setScore] = useState(null); // ← added
+  const [score, setScore] = useState(null); // ← keep score state here
 
   const rater = getRater() || "";
 
@@ -36,7 +36,7 @@ export default function Detail() {
         );
         const j = res.ok ? await res.json() : { exists: false };
         setAlready(!!j.exists);
-        if (j && typeof j.total === "number") setScore(j.total); // ← added
+        if (j && typeof j.total === "number") setScore(j.total);
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load.");
@@ -65,9 +65,6 @@ export default function Detail() {
         >
           ← Back
         </button>
-        {score != null && (
-          <div className="text-sm font-semibold">Score: {score}/40</div>
-        )}
         {err && <div className="text-sm text-red-700">{err}</div>}
       </div>
 
@@ -144,6 +141,8 @@ export default function Detail() {
           comparison={comparison}
           modelUsed={modelUsed}
           rater={rater}
+          score={score}                // ← pass score to form
+          setScore={setScore}          // ← allow form to update score
         />
       </div>
     </div>
