@@ -15,6 +15,22 @@ function hash32(str) {
   return h >>> 0;
 }
 
+/** ---- lightweight local persistence so the chosen option stays green on refresh ---- */
+const LS_KEY = (rater) => `PREFS_${rater || "ANON"}`;
+function readPrefs(rater) {
+  try {
+    const raw = localStorage.getItem(LS_KEY(rater));
+    return raw ? JSON.parse(raw) : { selected: {}, submitted: {} };
+  } catch {
+    return { selected: {}, submitted: {} };
+  }
+}
+function writePrefs(rater, selected, submitted) {
+  try {
+    localStorage.setItem(LS_KEY(rater), JSON.stringify({ selected, submitted }));
+  } catch {}
+}
+
 export default function Home() {
   const rater = getRater();
 
@@ -35,6 +51,15 @@ export default function Home() {
         const rows = await res.json();
         const arr = Array.isArray(rows) ? rows : [];
         setPairs(arr);
+
+        // 1) Hydrate UI immediately from localStorage (fast)
+        const fromLS = readPrefs(rater);
+        if (fromLS) {
+          if (fromLS.selected) setSelected((m) => ({ ...fromLS.selected }));
+          if (fromLS.submitted) setSubmittedMap((m) => ({ ...fromLS.submitted }));
+        }
+
+        // 2) Then confirm/override with server truth
         await checkStatuses(arr);
       } catch (e) {
         console.error(e);
@@ -42,7 +67,7 @@ export default function Home() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [rater]);
 
   async function checkStatuses(rows) {
     const ratedEntries = {};
@@ -98,13 +123,23 @@ export default function Home() {
     await Promise.all(fetches);
     setRatedMap(ratedEntries);
     setScoreMap(scoreEntries);
-    setSubmittedMap(submitted);
-    setSelected((m) => ({ ...m, ...selEntries }));
+    setSubmittedMap((prev) => {
+      const merged = { ...prev, ...submitted };
+      // persist merged state
+      writePrefs(rater, { ...selected, ...selEntries }, merged);
+      return merged;
+    });
+    setSelected((m) => {
+      const merged = { ...m, ...selEntries };
+      // persist merged state
+      writePrefs(rater, merged, { ...submittedMap, ...submitted });
+      return merged;
+    });
   }
 
   const viewPairs = useMemo(() => {
     return pairs.map((p) => {
-      const flip = ((hash32(String(p.comparison)) & 1) === 1);
+      const flip = ( (hash32(String(p.comparison)) & 1) === 1 );
       const left = flip ? p.medgemma : p.chatgpt;
       const right = flip ? p.chatgpt : p.medgemma;
 
@@ -142,9 +177,17 @@ export default function Home() {
         }),
       });
 
-      // immediately update local state so button changes to Resubmit
-      setSubmittedMap((m) => ({ ...m, [comp]: true }));
-      setSelected((m) => ({ ...m, [comp]: resVal }));
+      // Immediately reflect in UI and persist locally
+      setSubmittedMap((m) => {
+        const next = { ...m, [comp]: true };
+        writePrefs(rater, { ...selected, [comp]: resVal }, next);
+        return next;
+      });
+      setSelected((m) => {
+        const next = { ...m, [comp]: resVal };
+        writePrefs(rater, next, { ...submittedMap, [comp]: true });
+        return next;
+      });
 
       alert("Preference submitted.");
     } catch (e) {
@@ -242,7 +285,11 @@ export default function Home() {
                 selected={sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined}
                 setSelected={(val) => {
                   const normalized = val === "tie" ? 0 : val;
-                  setSelected((m) => ({ ...m, [comp]: normalized }));
+                  setSelected((m) => {
+                    const next = { ...m, [comp]: normalized };
+                    writePrefs(rater, next, submittedMap);
+                    return next;
+                  });
                 }}
                 onSubmit={() => submitPref(vp)}
               />
