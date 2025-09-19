@@ -21,7 +21,9 @@ export default function Home() {
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
+  // selected: { [comparison]: 0|1|2 }  (0=tie)
   const [selected, setSelected] = useState({});
+  // submittedMap: { [comparison]: true }
   const [submittedMap, setSubmittedMap] = useState({});
 
   const [ratedMap, setRatedMap] = useState({});
@@ -35,7 +37,7 @@ export default function Home() {
         const rows = await res.json();
         const arr = Array.isArray(rows) ? rows : [];
         setPairs(arr);
-        await checkStatuses(arr); // <-- fetch prior choices from server
+        await checkStatuses(arr); // fetch persisted choices from server
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load paired data.");
@@ -52,6 +54,7 @@ export default function Home() {
     const fetches = [];
 
     for (const p of rows) {
+      // preference status (server truth)
       fetches.push(
         fetch(
           `/api/preferences/status?comparison=${encodeURIComponent(
@@ -70,6 +73,7 @@ export default function Home() {
           .catch(() => {})
       );
 
+      // rating status for green panels (unchanged)
       const handleRating = (key, modelUsed, modelId) =>
         fetch(
           `/api/ratings/status?modelUsed=${encodeURIComponent(
@@ -96,10 +100,12 @@ export default function Home() {
     }
 
     await Promise.all(fetches);
+
+    // apply server truth
     setRatedMap(ratedEntries);
     setScoreMap(scoreEntries);
-    setSubmittedMap(submitted);       // server truth (controls Submit/Resubmit)
-    setSelected((m) => ({ ...m, ...selEntries })); // server truth (controls green highlight)
+    setSubmittedMap((m) => ({ ...m, ...submitted }));
+    setSelected((m) => ({ ...m, ...selEntries }));
   }
 
   const viewPairs = useMemo(() => {
@@ -130,7 +136,10 @@ export default function Home() {
     }
 
     try {
-      // send to server
+      // Optimistic update so it STAYS green and the button shows Resubmit immediately
+      setSubmittedMap((m) => ({ ...m, [comp]: true }));
+      // (selected already contains the choice the user clicked)
+
       const resp = await fetch("/api/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,11 +153,16 @@ export default function Home() {
       });
 
       if (!resp.ok) {
+        // revert optimistic submitted flag on failure
+        setSubmittedMap((m) => {
+          const { [comp]: _, ...rest } = m;
+          return rest;
+        });
         const txt = await resp.text();
         throw new Error(txt || "Failed to submit preference.");
       }
 
-      // re-fetch canonical state from server so it persists everywhere
+      // Reconcile with server so it persists across sessions
       await checkStatuses(pairs);
 
       alert("Preference submitted.");
