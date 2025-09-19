@@ -143,6 +143,10 @@ export default function Home() {
         }),
       });
 
+      // Optimistic UI: immediately reflect submission & keep choice
+      setSubmittedMap((m) => ({ ...m, [comp]: true }));
+
+      // Re-sync with server (in case) and notify
       await checkStatuses(pairs);
       alert("Preference submitted.");
     } catch (e) {
