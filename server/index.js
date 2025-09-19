@@ -136,7 +136,7 @@ app.post("/api/preferences", async (req, res) => {
         set1Id: set1Id || "",
         set2Id: set2Id || "",
         result: numResult,
-        strength: normalizedStrength, // null if tie
+        strength: normalizedStrength, // may be null if tie or not used
         updatedAt: new Date(),
       },
       $setOnInsert: { createdAt: new Date() },
@@ -152,6 +152,28 @@ app.post("/api/preferences", async (req, res) => {
   } catch (e) {
     console.error("POST /api/preferences error:", e);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+/** GET /api/preferences/status?comparison=...&rater=...  */
+app.get("/api/preferences/status", async (req, res) => {
+  try {
+    const { comparison, rater } = req.query;
+    if (!comparison || !rater) return res.json({ exists: false });
+
+    const hit = await Preference.findOne({ comparison, rater }).lean();
+    if (!hit) return res.json({ exists: false });
+
+    // Return the stored result (0=tie, 1=set1, 2=set2) so UI can highlight
+    res.json({
+      exists: true,
+      result: hit.result,
+      // keep strength if your schema stores it; otherwise this will be null
+      strength: hit.strength ?? null,
+    });
+  } catch (e) {
+    console.error("GET /api/preferences/status error:", e);
+    res.json({ exists: false });
   }
 });
 
