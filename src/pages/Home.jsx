@@ -176,7 +176,7 @@ export default function Home() {
     <div className="max-w-7xl mx-auto py-6 space-y-4">
       <div className="flex items-center justify-between mb-2">
         <a
-          href="https://drive.google.com/file/d/1l_9z2HcgwKD6NZZmBkLrn_aCtZfoCVRB/view?usp=sharing"
+          href="https://docs.google.com/document/d/1K4VkgNa3FkOeZHHu9qOCktq2-gLWPNbdogn_OsgoMp8/edit?usp=sharing"
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm underline text-gray-600 hover:text-black"

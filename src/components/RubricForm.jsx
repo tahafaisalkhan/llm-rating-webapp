@@ -188,7 +188,7 @@ export default function RubricForm({
       <div className="flex items-center gap-3">
         <div className="font-semibold">Rubric (0–5)</div>
         <a
-          href="https://drive.google.com/file/d/1l_9z2HcgwKD6NZZmBkLrn_aCtZfoCVRB/view?usp=drive_link"
+          href="https://docs.google.com/document/d/1K4VkgNa3FkOeZHHu9qOCktq2-gLWPNbdogn_OsgoMp8/edit?usp=sharing"
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm text-blue-600 hover:underline"
