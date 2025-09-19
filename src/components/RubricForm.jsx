@@ -40,14 +40,75 @@ export default function RubricForm({
 
   const AXES = useMemo(
     () => [
-      { label: "Medical Accuracy", title: "" },
-      { label: "Clinical Safety for Handover Utility", title: "" },
-      { label: "Clinical Reasoning", title: "" },
-      { label: "Linguistic Correctness (Urdu/English)", title: "" },
-      { label: "Precision in Medical Terminology", title: "" },
-      { label: "Structure & Flow", title: "" },
-      { label: "Patient Interaction & Communication", title: "" },
-      { label: "Alignment to Source (“Traceability”)", title: "" },
+      {
+        label: "Medical Accuracy",
+        title:
+          "Does the translation preserve all clinically relevant facts from the source?\n" +
+          "- Symptom fidelity (pain, location, severity, etc.)\n" +
+          "- Relevant history retained (past injuries, comorbidities)\n" +
+          "- Findings/diagnosis correctly translated\n" +
+          "- No hallucinated or missing details",
+      },
+      {
+        label: "Clinical Safety for Handover Utility",
+        title:
+          "Could another clinician safely use this translation without risk of harm?\n" +
+          "- Red-flag symptoms intact (chest pain, fever, pregnancy risks, etc.)\n" +
+          "- Medication names, doses, units translated exactly\n" +
+          "- Lab values / vitals correct and unaltered\n" +
+          "- No dangerous omissions or misstatements",
+      },
+      {
+        label: "Clinical Reasoning",
+        title:
+          "Does the reasoning remain clinically sound?\n" +
+          "- Diagnosis plausible and consistent\n" +
+          "- Suggested management aligns with medical standards\n" +
+          "- Logical cause–effect preserved",
+      },
+      {
+        label: "Linguistic Correctness (Urdu/English)",
+        title:
+          "Is the language fluent, correct, and terminologically faithful?\n" +
+          "- Natural, idiomatic Urdu (not awkward literal translation)\n" +
+          "- Consistent medical terminology\n" +
+          "- Medication / diagnosis names accurately rendered\n" +
+          "- Subtle clinical nuances (negations, temporality) preserved",
+      },
+      {
+        label: "Precision in Medical Terminology",
+        title:
+          "Terminology precision and consistency:\n" +
+          "- Consistent medical terms across the note\n" +
+          "- Accurate medication/diagnosis naming\n" +
+          "- Nuances (negations, temporality) preserved",
+      },
+      {
+        label: "Structure & Flow",
+        title:
+          "Does the translation follow the structure and flow of the original consultation?\n" +
+          "- Order of events preserved (symptom → history → exam → advice)\n" +
+          "- Speaker turns clear (doctor vs patient)\n" +
+          "- Coherent and easy to follow\n" +
+          "- Professional, clinical tone",
+      },
+      {
+        label: "Patient Interaction & Communication",
+        title:
+          "Does the translation preserve the human interaction?\n" +
+          "- Empathy and reassurance intact\n" +
+          "- Patient voice respected and accurately conveyed\n" +
+          "- Clinician’s explanations remain clear and supportive\n" +
+          "- Patient questions/concerns included",
+      },
+      {
+        label: "Alignment to Source (“Traceability”)",
+        title:
+          "Can every sentence in the Urdu dialogue be traced back to the English source?\n" +
+          "- If yes → fine.\n" +
+          "- If no → mark as “unsupported” (hallucination or added knowledge).\n" +
+          "- Note unsupported spans in Extra Comments, with severity (Minor / Moderate / Major).",
+      },
     ],
     []
   );
@@ -90,7 +151,7 @@ export default function RubricForm({
 
       const j = await res.json();
       if (j && typeof j.total === "number" && setScore) {
-        setScore(j.total); // ← update score immediately
+        setScore(j.total); // update score immediately
       }
 
       setLocked(true);
@@ -124,18 +185,17 @@ export default function RubricForm({
   return (
     <form onSubmit={submit} className="space-y-3">
       {/* Header */}
-<div className="flex items-center gap-3">
-  <div className="font-semibold">Rubric (0–5)</div>
-  <a
-    href="https://drive.google.com/file/d/1lCHpJ-nyQmClnzvWNcsa_LOpegXOhUPP/view?usp=drive_link"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-sm text-blue-600 hover:underline"
-  >
-    Press to go to rubric
-  </a>
-</div>
-
+      <div className="flex items-center gap-3">
+        <div className="font-semibold">Rubric (0–5)</div>
+        <a
+          href="https://drive.google.com/file/d/1lCHpJ-nyQmClnzvWNcsa_LOpegXOhUPP/view?usp=drive_link"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Press to go to rubric
+        </a>
+      </div>
 
       <div className="max-h-56 overflow-y-auto pr-1">
         <div className="space-y-2">
