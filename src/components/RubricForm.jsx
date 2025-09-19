@@ -124,17 +124,18 @@ export default function RubricForm({
   return (
     <form onSubmit={submit} className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="font-semibold">Rubric (0–5)</div>
-        <a
-          href="https://drive.google.com/file/d/1l_9z2HcgwKD6NZZmBkLrn_aCtZfoCVRB/view?usp=drive_link"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm underline text-blue-600 hover:text-blue-800"
-        >
-          Press to go to rubric
-        </a>
-      </div>
+<div className="flex items-center gap-3">
+  <div className="font-semibold">Rubric (0–5)</div>
+  <a
+    href="https://drive.google.com/file/d/1lCHpJ-nyQmClnzvWNcsa_LOpegXOhUPP/view?usp=drive_link"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-sm text-blue-600 hover:underline"
+  >
+    Press to go to rubric
+  </a>
+</div>
+
 
       <div className="max-h-56 overflow-y-auto pr-1">
         <div className="space-y-2">
