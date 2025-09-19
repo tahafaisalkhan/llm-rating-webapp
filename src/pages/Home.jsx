@@ -123,7 +123,6 @@ export default function Home() {
 
   async function submitPref(vp) {
     const comp = vp.comparison;
-
     const resVal = selected[comp];
     if (resVal === undefined) {
       alert("Pick 1, 2, or Tie first.");
@@ -143,11 +142,10 @@ export default function Home() {
         }),
       });
 
-      // Optimistic UI: immediately reflect submission & keep choice
+      // immediately update local state so button changes to Resubmit
       setSubmittedMap((m) => ({ ...m, [comp]: true }));
+      setSelected((m) => ({ ...m, [comp]: resVal }));
 
-      // Re-sync with server (in case) and notify
-      await checkStatuses(pairs);
       alert("Preference submitted.");
     } catch (e) {
       console.error(e);
@@ -197,6 +195,7 @@ export default function Home() {
 
       {viewPairs.map((vp) => {
         const comp = vp.comparison;
+        const sel = selected[comp];
 
         const leftKey = vp.left?.id ? `${vp.leftModelUsed}:${vp.left.id}` : null;
         const rightKey = vp.right?.id ? `${vp.rightModelUsed}:${vp.right.id}` : null;
@@ -206,8 +205,6 @@ export default function Home() {
 
         const leftScore = leftKey ? scoreMap[leftKey] : undefined;
         const rightScore = rightKey ? scoreMap[rightKey] : undefined;
-
-        const sel = selected[comp];
 
         return (
           <div key={comp} className="grid grid-cols-3 gap-4 items-start">
