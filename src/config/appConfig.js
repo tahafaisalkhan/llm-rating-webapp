@@ -6,7 +6,7 @@ export const STORAGE_KEY_RATER = "RATER";
  * Change the password strings here if needed.
  */
 export const CREDENTIALS = {
-  drmehroosh: "meh123",
-  drkomal: "kom123",
-  tahafaisalkhan: "tahafaisal"
+  drmehroosh: "mehroosh123",
+  drkomal: "456DrK",
+  admin: "admin"
 };
