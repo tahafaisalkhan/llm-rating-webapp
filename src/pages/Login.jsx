@@ -55,7 +55,7 @@ export default function Login() {
         </button>
 
         <div className="text-xs text-gray-500">
-          Allowed: {Object.keys(CREDENTIALS).join(", ")}
+          Contact team if username/password are not working.
         </div>
       </form>
     </div>
