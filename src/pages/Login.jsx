@@ -35,7 +35,7 @@ export default function Login() {
 
         <input
           className="w-full border rounded px-3 py-2"
-          placeholder="username (e.g., drmehroosh)"
+          placeholder="username (e.g., tahafaisalkhan)"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />

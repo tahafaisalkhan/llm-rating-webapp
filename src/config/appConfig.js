@@ -8,4 +8,5 @@ export const STORAGE_KEY_RATER = "RATER";
 export const CREDENTIALS = {
   drmehroosh: "meh123",
   drkomal: "kom123",
+  tahafaisalkhan: "tahafaisal"
 };
