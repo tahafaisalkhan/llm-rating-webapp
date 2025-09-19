@@ -1,5 +1,5 @@
 // src/utils/auth.js
-import { ALLOWED_USERS, STORAGE_KEY_RATER } from "../config/appConfig";
+import { CREDENTIALS, STORAGE_KEY_RATER } from "../config/appConfig";
 
 export function getRater() {
   try {
@@ -10,14 +10,14 @@ export function getRater() {
 }
 
 export function setRater(name) {
-  const upper = String(name || "").trim().toUpperCase();
-  if (!ALLOWED_USERS.includes(upper)) {
+  const key = String(name || "").trim().toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(CREDENTIALS, key)) {
     throw new Error("Not an allowed user");
   }
   try {
-    localStorage.setItem(STORAGE_KEY_RATER, upper);
+    localStorage.setItem(STORAGE_KEY_RATER, key);
   } catch {}
-  return upper;
+  return key;
 }
 
 export function clearRater() {
@@ -26,7 +26,9 @@ export function clearRater() {
   } catch {}
 }
 
-export function isAllowed(name) {
-  const upper = String(name || "").trim().toUpperCase();
-  return ALLOWED_USERS.includes(upper);
+/** Username + password check */
+export function isAllowed(name, password) {
+  const key = String(name || "").trim().toLowerCase();
+  const pwd = String(password || "");
+  return Object.prototype.hasOwnProperty.call(CREDENTIALS, key) && CREDENTIALS[key] === pwd;
 }

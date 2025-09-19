@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setRater, isAllowed } from "../utils/auth";
-import { ALLOWED_USERS } from "../config/appConfig";
+import { CREDENTIALS } from "../config/appConfig";
 
 export default function Login() {
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const navigate = useNavigate();
 
@@ -13,12 +14,13 @@ export default function Login() {
     e.preventDefault();
     setErr("");
     try {
-      const upper = (name || "").trim().toUpperCase();
-      if (!isAllowed(upper)) {
-        setErr("Not an allowed user.");
+      const uname = (name || "").trim();
+      const pwd = (password || "");
+      if (!isAllowed(uname, pwd)) {
+        setErr("Invalid username or password.");
         return;
       }
-      setRater(upper);
+      setRater(uname);
       navigate("/");
     } catch (e2) {
       setErr(e2.message || "Login failed.");
@@ -29,13 +31,21 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 border rounded-xl p-6 bg-white">
         <h1 className="text-2xl font-bold">Rater Login</h1>
-        <p className="text-sm text-gray-600">Enter your username in ALL CAPS (e.g., USER1).</p>
+        <p className="text-sm text-gray-600">Enter your username and password.</p>
 
         <input
           className="w-full border rounded px-3 py-2"
-          placeholder="USERNAME"
+          placeholder="username (e.g., drmehroosh)"
           value={name}
           onChange={(e) => setName(e.target.value)}
+        />
+
+        <input
+          className="w-full border rounded px-3 py-2"
+          placeholder="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
         />
 
         {err && <div className="text-sm text-red-700">{err}</div>}
@@ -45,7 +55,7 @@ export default function Login() {
         </button>
 
         <div className="text-xs text-gray-500">
-          Allowed: {ALLOWED_USERS.join(", ")}
+          Allowed: {Object.keys(CREDENTIALS).join(", ")}
         </div>
       </form>
     </div>
