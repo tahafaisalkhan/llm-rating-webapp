@@ -126,12 +126,24 @@ export default function RubricForm({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="font-semibold">Rubric (0–5)</div>
+        <a
+          href="https://drive.google.com/file/d/1l_9z2HcgwKD6NZZmBkLrn_aCtZfoCVRB/view?usp=drive_link"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm underline text-blue-600 hover:text-blue-800"
+        >
+          Press to go to rubric
+        </a>
       </div>
 
       <div className="max-h-56 overflow-y-auto pr-1">
         <div className="space-y-2">
           {AXES.map((ax, i) => (
-            <div key={ax.label} className="flex items-center justify-between gap-2" title={ax.title}>
+            <div
+              key={ax.label}
+              className="flex items-center justify-between gap-2"
+              title={ax.title}
+            >
               <div className="text-sm">{ax.label}</div>
               <Likert value={scores[i]} onChange={(v) => setAxis(i, v)} disabled={false} />
             </div>
