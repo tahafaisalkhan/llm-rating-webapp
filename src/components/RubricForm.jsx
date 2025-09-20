@@ -46,8 +46,7 @@ export default function RubricForm({
           "Does the translation preserve all clinically relevant facts from the source?\n" +
           "- Symptom fidelity (pain, location, severity, etc.)\n" +
           "- Relevant history retained (past injuries, comorbidities)\n" +
-          "- Findings/diagnosis correctly translated\n" +
-          "- No hallucinated or missing details",
+          "- Findings/diagnosis correctly translated",
       },
       {
         label: "Clinical Safety for Handover Utility",
@@ -69,19 +68,17 @@ export default function RubricForm({
       {
         label: "Linguistic Correctness (Urdu/English)",
         title:
-          "Is the language fluent, correct, and terminologically faithful?\n" +
+          "Is the language fluent and correct?\n" +
           "- Natural, idiomatic Urdu (not awkward literal translation)\n" +
-          "- Consistent medical terminology\n" +
-          "- Medication / diagnosis names accurately rendered\n" +
-          "- Subtle clinical nuances (negations, temporality) preserved",
+          "- Grammar, spelling, and punctuation accurate",
       },
       {
         label: "Precision in Medical Terminology",
         title:
-          "Terminology precision and consistency:\n" +
-          "- Consistent medical terms across the note\n" +
-          "- Accurate medication/diagnosis naming\n" +
-          "- Nuances (negations, temporality) preserved",
+          "Is the translation terminologically faithful?\n" +
+          "- Consistent medical terminology\n" +
+          "- Medication / diagnosis names accurately rendered\n" +
+          "- Subtle clinical nuances (negations, temporality) preserved",
       },
       {
         label: "Structure & Flow",
@@ -89,25 +86,23 @@ export default function RubricForm({
           "Does the translation follow the structure and flow of the original consultation?\n" +
           "- Order of events preserved (symptom → history → exam → advice)\n" +
           "- Speaker turns clear (doctor vs patient)\n" +
-          "- Coherent and easy to follow\n" +
-          "- Professional, clinical tone",
+          "- Coherent, professional and easy to follow",
       },
       {
         label: "Patient Interaction & Communication",
         title:
           "Does the translation preserve the human interaction?\n" +
-          "- Empathy and reassurance intact\n" +
+          "- Empathy, reassurance, and patient concerns included\n" +
           "- Patient voice respected and accurately conveyed\n" +
-          "- Clinician’s explanations remain clear and supportive\n" +
-          "- Patient questions/concerns included",
+          "- Clinician’s explanations remain clear and supportive",
       },
       {
         label: "Alignment to Source (“Traceability”)",
         title:
           "Can every sentence in the Urdu dialogue be traced back to the English source?\n" +
-          "- If yes → fine.\n" +
-          "- If no → mark as “unsupported” (hallucination or added knowledge).\n" +
-          "- Note unsupported spans in Extra Comments, with severity (Minor / Moderate / Major).",
+          "- No added or altered content (no hallucinations) - Important\n" +
+          "- Faithful representation without unsupported material\n" +
+          "- Rate based on the severity of the hallucinations (0 for severe hallucinations and 5 for no hallucinations)",
       },
     ],
     []
