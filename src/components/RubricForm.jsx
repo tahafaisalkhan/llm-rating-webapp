@@ -31,6 +31,43 @@ export default function RubricForm({
 
   useEffect(() => setLocked(!!disabledInitial), [disabledInitial]);
 
+  // NEW: fetch previously saved rubric and prefill form
+  useEffect(() => {
+    (async () => {
+      try {
+        setErr("");
+        const qs = new URLSearchParams({
+          modelUsed: modelUsed || "",
+          modelId: itemId || "",
+          rater: rater || "",
+        }).toString();
+        const res = await fetch(`/api/ratings/get?${qs}`);
+        if (!res.ok) return; // nothing saved / or ignore
+        const j = await res.json();
+        if (j?.exists && j?.scores) {
+          const s = j.scores;
+          const next = [
+            Number(s.axis1 ?? 3),
+            Number(s.axis2 ?? 3),
+            Number(s.axis3 ?? 3),
+            Number(s.axis4 ?? 3),
+            Number(s.axis5 ?? 3),
+            Number(s.axis6 ?? 3),
+            Number(s.axis7 ?? 3),
+            Number(s.axis8 ?? 3),
+          ];
+          setScores(next);
+          setExtra(String(s.comments?.extra ?? ""));
+          if (typeof j.total === "number" && setScore) setScore(j.total);
+          setLocked(true); // already submitted before
+        }
+      } catch (e) {
+        // non-fatal: keep defaults
+        console.error(e);
+      }
+    })();
+  }, [itemId, modelUsed, rater, setScore]);
+
   const setAxis = (i, v) =>
     setScores((arr) => {
       const copy = arr.slice();

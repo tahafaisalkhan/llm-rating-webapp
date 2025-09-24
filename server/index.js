@@ -105,6 +105,27 @@ app.get("/api/ratings/status", async (req, res) => {
   }
 });
 
+/** NEW: GET /api/ratings/get?modelUsed=...&modelId=...&rater=...  (fetch full saved rubric) */
+app.get("/api/ratings/get", async (req, res) => {
+  try {
+    const modelUsedNorm = normalizeModelUsed(req.query.modelUsed);
+    const { modelId, rater } = req.query;
+    if (!modelUsedNorm || !modelId || !rater) return res.json({ exists: false });
+
+    const doc = await Rating.findOne({ modelUsed: modelUsedNorm, modelId, rater }).lean();
+    if (!doc) return res.json({ exists: false });
+
+    res.json({
+      exists: true,
+      scores: doc.scores || null,   // { axis1..axis8, comments:{ extra } }
+      total: totalScore(doc.scores),
+    });
+  } catch (e) {
+    console.error("GET /api/ratings/get error:", e);
+    res.json({ exists: false });
+  }
+});
+
 /** ----------------- PREFERENCES ----------------- */
 /** POST /api/preferences  (UPSERT) */
 app.post("/api/preferences", async (req, res) => {
@@ -164,11 +185,9 @@ app.get("/api/preferences/status", async (req, res) => {
     const hit = await Preference.findOne({ comparison, rater }).lean();
     if (!hit) return res.json({ exists: false });
 
-    // Return the stored result (0=tie, 1=set1, 2=set2) so UI can highlight
     res.json({
       exists: true,
       result: hit.result,
-      // keep strength if your schema stores it; otherwise this will be null
       strength: hit.strength ?? null,
     });
   } catch (e) {
