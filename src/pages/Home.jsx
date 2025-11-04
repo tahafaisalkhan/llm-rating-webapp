@@ -1,19 +1,7 @@
+// src/pages/Home.jsx
 import { useEffect, useState, useMemo } from "react";
 import PanelCard from "../components/PanelCard";
-import PreferenceBox from "../components/PreferenceBox";
 import { getRater, clearRater } from "../utils/auth";
-
-function hash32(str) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  h += h << 13; h ^= h >>> 7;
-  h += h << 3;  h ^= h >>> 17;
-  h += h << 5;
-  return h >>> 0;
-}
 
 export default function Home() {
   const rater = getRater();
@@ -21,11 +9,7 @@ export default function Home() {
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  // selected: { [comparison]: 0|1|2 }  (0=tie)
-  const [selected, setSelected] = useState({});
-  // submittedMap: { [comparison]: true }
-  const [submittedMap, setSubmittedMap] = useState({});
-
+  // Rated status per model+id, e.g. "gemma:123", "medgemma:456"
   const [ratedMap, setRatedMap] = useState({});
   const [scoreMap, setScoreMap] = useState({});
 
@@ -37,143 +21,79 @@ export default function Home() {
         const rows = await res.json();
         const arr = Array.isArray(rows) ? rows : [];
         setPairs(arr);
-        await checkStatuses(arr); // fetch persisted choices from server
+        await checkStatuses(arr); // fetch persisted rubric status from server
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load paired data.");
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rater]);
 
   async function checkStatuses(rows) {
     const ratedEntries = {};
     const scoreEntries = {};
-    const submitted = {};
-    const selEntries = {};
     const fetches = [];
 
+    const handleRating = (key, modelUsed, modelId) =>
+      fetch(
+        `/api/ratings/status?modelUsed=${encodeURIComponent(
+          modelUsed
+        )}&modelId=${encodeURIComponent(modelId)}&rater=${encodeURIComponent(
+          rater
+        )}`
+      )
+        .then((r) => (r.ok ? r.json() : { exists: false }))
+        .then((j) => {
+          if (j?.exists) {
+            ratedEntries[key] = true;
+            if (typeof j.total === "number") scoreEntries[key] = j.total;
+          }
+        })
+        .catch(() => {});
+
     for (const p of rows) {
-      // preference status (server truth)
-      fetches.push(
-        fetch(
-          `/api/preferences/status?comparison=${encodeURIComponent(
-            p.comparison
-          )}&rater=${encodeURIComponent(rater)}`
-        )
-          .then((r) => (r.ok ? r.json() : { exists: false }))
-          .then((j) => {
-            if (j?.exists) {
-              submitted[p.comparison] = true;
-              if ([0, 1, 2].includes(Number(j.result))) {
-                selEntries[p.comparison] = Number(j.result);
-              }
-            }
-          })
-          .catch(() => {})
-      );
-
-      // rating status for green panels (unchanged)
-      const handleRating = (key, modelUsed, modelId) =>
-        fetch(
-          `/api/ratings/status?modelUsed=${encodeURIComponent(
-            modelUsed
-          )}&modelId=${encodeURIComponent(modelId)}&rater=${encodeURIComponent(
-            rater
-          )}`
-        )
-          .then((r) => (r.ok ? r.json() : { exists: false }))
-          .then((j) => {
-            if (j?.exists) {
-              ratedEntries[key] = true;
-              if (typeof j.total === "number") scoreEntries[key] = j.total;
-            }
-          })
-          .catch(() => {});
-
       if (p.chatgpt?.id) {
-        fetches.push(handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id));
+        fetches.push(
+          handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id)
+        );
       }
       if (p.medgemma?.id) {
-        fetches.push(handleRating(`medgemma:${p.medgemma.id}`, "medgemma", p.medgemma.id));
+        fetches.push(
+          handleRating(
+            `medgemma:${p.medgemma.id}`,
+            "medgemma",
+            p.medgemma.id
+          )
+        );
       }
     }
 
     await Promise.all(fetches);
 
-    // apply server truth
     setRatedMap(ratedEntries);
     setScoreMap(scoreEntries);
-    setSubmittedMap((m) => ({ ...m, ...submitted }));
-    setSelected((m) => ({ ...m, ...selEntries }));
   }
 
-  const viewPairs = useMemo(() => {
+  // One item per comparison
+  const viewCases = useMemo(() => {
     return pairs.map((p) => {
-      const flip = ((hash32(String(p.comparison)) & 1) === 1);
-      const left = flip ? p.medgemma : p.chatgpt;
-      const right = flip ? p.chatgpt : p.medgemma;
-
-      const leftModelUsed = flip ? "medgemma" : "gemma";
-      const rightModelUsed = flip ? "gemma" : "medgemma";
+      const gemmaKey = p.chatgpt?.id ? `gemma:${p.chatgpt.id}` : null;
+      const medKey = p.medgemma?.id ? `medgemma:${p.medgemma.id}` : null;
 
       return {
         comparison: p.comparison,
-        left,
-        right,
-        leftModelUsed,
-        rightModelUsed,
+        datasetid: p.chatgpt?.datasetid || p.medgemma?.datasetid || "",
+        gemmaRated: gemmaKey ? !!ratedMap[gemmaKey] : false,
+        medgemmaRated: medKey ? !!ratedMap[medKey] : false,
+        gemmaScore: gemmaKey ? scoreMap[gemmaKey] : undefined,
+        medgemmaScore: medKey ? scoreMap[medKey] : undefined,
       };
     });
-  }, [pairs]);
-
-  async function submitPref(vp) {
-    const comp = vp.comparison;
-    const resVal = selected[comp];
-    if (resVal === undefined) {
-      alert("Pick 1, 2, or Tie first.");
-      return;
-    }
-
-    try {
-      // Optimistic update so it STAYS green and the button shows Resubmit immediately
-      setSubmittedMap((m) => ({ ...m, [comp]: true }));
-      // (selected already contains the choice the user clicked)
-
-      const resp = await fetch("/api/preferences", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          comparison: comp,
-          set1Id: vp.left?.id || "",
-          set2Id: vp.right?.id || "",
-          result: resVal,
-          rater,
-        }),
-      });
-
-      if (!resp.ok) {
-        // revert optimistic submitted flag on failure
-        setSubmittedMap((m) => {
-          const { [comp]: _, ...rest } = m;
-          return rest;
-        });
-        const txt = await resp.text();
-        throw new Error(txt || "Failed to submit preference.");
-      }
-
-      // Reconcile with server so it persists across sessions
-      await checkStatuses(pairs);
-
-      alert("Preference submitted.");
-    } catch (e) {
-      console.error(e);
-      alert("Failed: " + (e.message || "Unknown"));
-    }
-  }
+  }, [pairs, ratedMap, scoreMap]);
 
   return (
-    <div className="max-w-7xl mx-auto py-6 space-y-4">
+    <div className="max-w-5xl mx-auto py-6 space-y-4">
+      {/* Top bar */}
       <div className="flex items-center justify-between mb-2">
         <a
           href="https://docs.google.com/document/d/1K4VkgNa3FkOeZHHu9qOCktq2-gLWPNbdogn_OsgoMp8/edit?usp=sharing"
@@ -204,79 +124,24 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 font-semibold text-center sticky top-0 bg-gray-50 py-2">
-        <div>Set 1</div>
-        <div>Set 2</div>
-        <div>Preference</div>
-      </div>
-
       {err && <div className="text-sm text-red-700">{err}</div>}
 
-      {viewPairs.map((vp) => {
-        const comp = vp.comparison;
-        const sel = selected[comp];
-
-        const leftKey = vp.left?.id ? `${vp.leftModelUsed}:${vp.left.id}` : null;
-        const rightKey = vp.right?.id ? `${vp.rightModelUsed}:${vp.right.id}` : null;
-
-        const leftRated = leftKey ? !!ratedMap[leftKey] : false;
-        const rightRated = rightKey ? !!ratedMap[rightKey] : false;
-
-        const leftScore = leftKey ? scoreMap[leftKey] : undefined;
-        const rightScore = rightKey ? scoreMap[rightKey] : undefined;
-
-        return (
-          <div key={comp} className="grid grid-cols-3 gap-4 items-start">
-            <div>
-              {vp.left ? (
-                <PanelCard
-                  id={vp.left.id}
-                  datasetid={vp.left.datasetid}
-                  setLabel="set1"
-                  rated={leftRated}
-                  score={leftScore}
-                />
-              ) : (
-                <Blank label="No Set 1 item" />
-              )}
-            </div>
-
-            <div>
-              {vp.right ? (
-                <PanelCard
-                  id={vp.right.id}
-                  datasetid={vp.right.datasetid}
-                  setLabel="set2"
-                  rated={rightRated}
-                  score={rightScore}
-                />
-              ) : (
-                <Blank label="No Set 2 item" />
-              )}
-            </div>
-
-            <div className="flex items-center justify-center">
-              <PreferenceBox
-                submitted={!!submittedMap[comp]}
-                selected={sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined}
-                setSelected={(val) => {
-                  const normalized = val === "tie" ? 0 : val;
-                  setSelected((m) => ({ ...m, [comp]: normalized }));
-                }}
-                onSubmit={() => submitPref(vp)}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function Blank({ label }) {
-  return (
-    <div className="border rounded p-4 bg-white text-sm text-gray-500">
-      {label}
+      <div className="mt-4 space-y-3">
+        {viewCases.map((c) => (
+          <PanelCard
+            key={c.comparison}
+            comparison={c.comparison}
+            datasetid={c.datasetid}
+            gemmaRated={c.gemmaRated}
+            medgemmaRated={c.medgemmaRated}
+            gemmaScore={c.gemmaScore}
+            medgemmaScore={c.medgemmaScore}
+          />
+        ))}
+        {viewCases.length === 0 && !err && (
+          <div className="text-sm text-gray-500">No cases found.</div>
+        )}
+      </div>
     </div>
   );
 }
