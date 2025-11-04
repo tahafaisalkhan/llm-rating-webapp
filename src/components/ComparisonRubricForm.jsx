@@ -1,28 +1,15 @@
 // src/components/ComparisonRubricForm.jsx
 import { useEffect, useMemo, useState } from "react";
 
-/**
- * Tweak this to change how tall the whole rubric area is.
- * Examples:
- *  - "max-h-[12rem]"
- *  - "max-h-[14rem]"
- *  - "max-h-[18rem]"
- */
 const AXIS_SCROLL_MAX_H_CLASS = "max-h-[12rem]";
 
-/**
- * Props:
- *  - rater: string
- *  - comparison: string | number
- *  - datasetId: string
- */
 export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   const [axes, setAxes] = useState(
     () =>
       Array.from({ length: 8 }).map(() => ({
-        winner: null,      // 0 = tie, 1, 2
-        strength: 3,       // 1–5 when winner is 1 or 2
-        tieQuality: null,  // "bad" | "good" | "excellent" when winner === 0
+        winner: null,
+        strength: 3,
+        tieQuality: null,
       }))
   );
   const [comments, setComments] = useState("");
@@ -44,7 +31,6 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     []
   );
 
-  // Prefill if saved
   useEffect(() => {
     (async () => {
       try {
@@ -83,62 +69,33 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     })();
   }, [comparison, rater]);
 
-  const setAxisWinner = (idx, winner) => {
-    setAxes((old) => {
-      const copy = old.slice();
-      const current = copy[idx] || {
-        winner: null,
-        strength: 3,
-        tieQuality: null,
-      };
-      copy[idx] = {
-        winner,
-        strength: winner === 0 ? null : current.strength ?? 3,
-        tieQuality: winner === 0 ? current.tieQuality ?? null : null,
-      };
-      return copy;
-    });
-  };
+  const setAxisWinner = (idx, winner) =>
+    setAxes((old) =>
+      old.map((a, i) =>
+        i === idx
+          ? {
+              winner,
+              strength: winner === 0 ? null : a.strength ?? 3,
+              tieQuality: winner === 0 ? a.tieQuality ?? null : null,
+            }
+          : a
+      )
+    );
 
-  const setAxisStrength = (idx, strength) => {
-    setAxes((old) => {
-      const copy = old.slice();
-      const current = copy[idx] || {
-        winner: null,
-        strength: 3,
-        tieQuality: null,
-      };
-      copy[idx] = { ...current, strength };
-      return copy;
-    });
-  };
+  const setAxisStrength = (idx, strength) =>
+    setAxes((old) => old.map((a, i) => (i === idx ? { ...a, strength } : a)));
 
-  const setAxisTieQuality = (idx, tieQuality) => {
-    setAxes((old) => {
-      const copy = old.slice();
-      const current = copy[idx] || {
-        winner: null,
-        strength: 3,
-        tieQuality: null,
-      };
-      copy[idx] = { ...current, tieQuality };
-      return copy;
-    });
-  };
+  const setAxisTieQuality = (idx, tieQuality) =>
+    setAxes((old) => old.map((a, i) => (i === idx ? { ...a, tieQuality } : a)));
 
-  // Are all 8 axes fully completed?
   const allComplete = useMemo(() => {
-    for (let i = 0; i < 8; i++) {
-      const a = axes[i];
-      if (!a || a.winner === null) return false;
-      if (a.winner === 1 || a.winner === 2) {
-        if (!a.strength || a.strength < 1 || a.strength > 5) return false;
-      }
-      if (a.winner === 0) {
-        if (!a.tieQuality) return false;
-      }
-    }
-    return true;
+    return axes.every((a) => {
+      if (a.winner === null) return false;
+      if (a.winner === 1 || a.winner === 2)
+        return a.strength >= 1 && a.strength <= 5;
+      if (a.winner === 0) return !!a.tieQuality;
+      return false;
+    });
   }, [axes]);
 
   const handleSubmit = async (e) => {
@@ -147,34 +104,29 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     setErr("");
 
     try {
-      // Validation (with clear error messages)
       for (let i = 0; i < 8; i++) {
         const a = axes[i];
         const axisNum = i + 1;
-        if (!a || a.winner === null) {
-          throw new Error(`Please choose Translation 1 / Translation 2 / Tie for axis ${axisNum}.`);
-        }
-        if (a.winner === 1 || a.winner === 2) {
-          if (!a.strength || a.strength < 1 || a.strength > 5) {
-            throw new Error(`Please choose strength 1–5 for axis ${axisNum}.`);
-          }
-        }
-        if (a.winner === 0 && !a.tieQuality) {
+        if (a.winner === null)
+          throw new Error(
+            `Please choose Translation 1 / Translation 2 / Tie for axis ${axisNum}.`
+          );
+        if ((a.winner === 1 || a.winner === 2) && !a.strength)
+          throw new Error(`Please choose strength 1–5 for axis ${axisNum}.`);
+        if (a.winner === 0 && !a.tieQuality)
           throw new Error(
             `For axis ${axisNum}, when Tie is selected, choose: both bad / both good / both excellent.`
           );
-        }
       }
 
       const axesPayload = {};
-      for (let i = 0; i < 8; i++) {
-        const a = axes[i];
+      axes.forEach((a, i) => {
         axesPayload[`axis${i + 1}`] = {
           winner: a.winner,
           strength: a.winner === 0 ? null : a.strength,
           tieQuality: a.winner === 0 ? a.tieQuality : null,
         };
-      }
+      });
 
       const body = {
         rater,
@@ -190,17 +142,12 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
         body: JSON.stringify(body),
       });
 
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || "Server error");
-      }
-
-      setSaving(false);
+      if (!res.ok) throw new Error(await res.text());
       setSavedOnce(true);
       alert("Rating saved.");
     } catch (e) {
-      console.error(e);
       setErr(e.message || "Failed to submit.");
+    } finally {
       setSaving(false);
     }
   };
@@ -231,7 +178,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   );
 
   const Likert = ({ idx, strength }) => (
-    <div className="flex items-center gap-1 text-[10px]">
+    <div className="flex items-center gap-1 text-[10px] ml-2">
       {[1, 2, 3, 4, 5].map((n) => (
         <label key={n} className="inline-flex items-center gap-0.5">
           <input
@@ -247,7 +194,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   );
 
   const TieQuality = ({ idx, tieQuality }) => (
-    <div className="flex flex-wrap gap-1 text-[10px] mt-1">
+    <div className="flex flex-wrap gap-1 text-[10px] ml-2">
       {[
         { val: "bad", label: "both translations are bad" },
         { val: "good", label: "both translations are good" },
@@ -276,11 +223,10 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
         Choose which Urdu translation is better on each axis, and how strongly.
         <span className="font-normal">
           {" "}
-          (Translation&nbsp;1 vs Translation&nbsp;2 vs Tie)
+          (Translation 1 vs Translation 2 vs Tie)
         </span>
       </div>
 
-      {/* All axes: height controlled by AXIS_SCROLL_MAX_H_CLASS */}
       <div
         className={[
           "space-y-2 overflow-y-auto pr-1",
@@ -300,9 +246,15 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
               key={ax.label}
               className="border rounded-lg px-3 py-2 bg-gray-50"
             >
-              <div className="flex flex-col gap-2">
-                {/* Axis label + helper text */}
-                <div>
+              {/* horizontal row: buttons on left, label on right */}
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <WinnerButtons idx={idx} winner={winner} />
+                  {needsStrength && <Likert idx={idx} strength={strength} />}
+                  {isTie && <TieQuality idx={idx} tieQuality={tieQuality} />}
+                </div>
+
+                <div className="flex flex-col">
                   <div className="text-[13px] font-medium">{ax.label}</div>
                   <div className="text-[11px] text-gray-500 mt-0.5">
                     {needsStrength
@@ -311,17 +263,6 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
                       ? "Tie selected – specify if both translations are bad, good, or excellent."
                       : "Pick Translation 1, Translation 2, or Tie."}
                   </div>
-                </div>
-
-                {/* Buttons & Likert / tie options under label, left-aligned */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-3">
-                    <WinnerButtons idx={idx} winner={winner} />
-                    {needsStrength && <Likert idx={idx} strength={strength} />}
-                  </div>
-                  {isTie && (
-                    <TieQuality idx={idx} tieQuality={tieQuality} />
-                  )}
                 </div>
               </div>
             </div>
