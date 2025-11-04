@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
  *  - "max-h-[14rem]"
  *  - "max-h-[18rem]"
  */
-const AXIS_SCROLL_MAX_H_CLASS = "max-h-[14rem]";
+const AXIS_SCROLL_MAX_H_CLASS = "max-h-[12rem]";
 
 /**
  * Props:
