@@ -7,11 +7,7 @@ import { useEffect, useMemo, useState } from "react";
  *  - comparison: string | number
  *  - datasetId: string
  */
-export default function ComparisonRubricForm({
-  rater,
-  comparison,
-  datasetId,
-}) {
+export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   const [axes, setAxes] = useState(
     () =>
       Array.from({ length: 8 }).map(() => ({
@@ -38,7 +34,6 @@ export default function ComparisonRubricForm({
     []
   );
 
-  // Prefill from server if exists
   useEffect(() => {
     (async () => {
       try {
@@ -103,7 +98,6 @@ export default function ComparisonRubricForm({
     setErr("");
 
     try {
-      // basic validation
       for (let i = 0; i < 8; i++) {
         const a = axes[i];
         if (a.winner === null) {
@@ -152,7 +146,7 @@ export default function ComparisonRubricForm({
   };
 
   const WinnerButtons = ({ idx, winner }) => (
-    <div className="inline-flex rounded-md shadow-sm overflow-hidden border text-xs">
+    <div className="inline-flex rounded-md shadow-sm overflow-hidden border text-[11px]">
       {[
         { val: 1, label: "1" },
         { val: 2, label: "2" },
@@ -163,7 +157,7 @@ export default function ComparisonRubricForm({
           type="button"
           onClick={() => setAxisWinner(idx, opt.val)}
           className={[
-            "px-2.5 py-1 border-r last:border-r-0",
+            "px-2 py-0.5 border-r last:border-r-0",
             winner === opt.val
               ? "bg-black text-white"
               : "bg-white text-gray-800 hover:bg-gray-100",
@@ -176,7 +170,7 @@ export default function ComparisonRubricForm({
   );
 
   const Likert = ({ idx, strength, disabled }) => (
-    <div className="flex items-center gap-1 text-[11px]">
+    <div className="flex items-center gap-1 text-[10px]">
       {[1, 2, 3, 4, 5].map((n) => (
         <label key={n} className="inline-flex items-center gap-0.5">
           <input
@@ -193,13 +187,13 @@ export default function ComparisonRubricForm({
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="font-semibold text-sm">
+    <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
+      <div className="font-medium text-sm mb-1">
         Choose which Urdu translation is better on each axis, and how strongly.
         (1 = Urdu 1, 2 = Urdu 2, Tie = no difference)
       </div>
 
-      <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+      <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
         {AXES_META.map((ax, idx) => {
           const a = axes[idx];
           const winner = a?.winner;
@@ -211,12 +205,12 @@ export default function ComparisonRubricForm({
               key={ax.label}
               className="border rounded-lg px-3 py-2 bg-gray-50"
             >
-              <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center justify-between mb-1">
                 <div className="text-sm font-medium">{ax.label}</div>
                 <WinnerButtons idx={idx} winner={winner} />
               </div>
 
-              <div className="flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center justify-between text-xs">
                 <div className="text-gray-600">
                   {needsStrength
                     ? "How strongly do you prefer this Urdu version?"
@@ -234,7 +228,7 @@ export default function ComparisonRubricForm({
         <input
           type="text"
           placeholder="(optional) brief note"
-          className="border rounded px-2 py-1 text-xs w-72"
+          className="border rounded px-2 py-1 text-xs w-64"
           value={comments}
           onChange={(e) => setComments(e.target.value)}
         />
@@ -242,10 +236,10 @@ export default function ComparisonRubricForm({
 
       {err && <div className="text-sm text-red-700">{err}</div>}
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <button
           type="submit"
-          className="bg-black text-white rounded px-4 py-2 font-semibold disabled:opacity-60"
+          className="bg-black text-white rounded px-3 py-1 font-semibold text-sm disabled:opacity-60"
           disabled={saving}
         >
           {saving ? "Submitting…" : savedOnce ? "Resubmit" : "Submit"}
