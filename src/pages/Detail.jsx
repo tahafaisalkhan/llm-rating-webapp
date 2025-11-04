@@ -1,22 +1,17 @@
-// src/pages/Detail.jsx
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RubricForm from "../components/RubricForm";
 import { getRater } from "../utils/auth";
 
 export default function Detail() {
-  const { comparison } = useParams();  // new: "comparison" from /item/:comparison
+  const { id, set } = useParams(); // "set1" | "set2"
   const navigate = useNavigate();
 
-  const [cg, setCg] = useState(null); // Gemma row
-  const [mg, setMg] = useState(null); // MedGemma row
+  const [cg, setCg] = useState(null); // chatgpt.json (Gemma content)
+  const [mg, setMg] = useState(null);
   const [err, setErr] = useState("");
-
-  const [alreadyGemma, setAlreadyGemma] = useState(false);
-  const [scoreGemma, setScoreGemma] = useState(null);
-
-  const [alreadyMed, setAlreadyMed] = useState(false);
-  const [scoreMed, setScoreMed] = useState(null);
+  const [already, setAlready] = useState(false);
+  const [score, setScore] = useState(null); // ← keep score state here
 
   const rater = getRater() || "";
 
@@ -24,71 +19,42 @@ export default function Detail() {
     (async () => {
       try {
         const [cgRes, mgRes] = await Promise.all([
-          fetch("/data/chatgpt.json"),
+          fetch("/data/chatgpt.json"),   // keep filename
           fetch("/data/medgemma.json"),
         ]);
-        if (!cgRes.ok || !mgRes.ok) {
-          throw new Error("Missing JSON (run npm run build:data)");
-        }
-
+        if (!cgRes.ok || !mgRes.ok) throw new Error("Missing JSON (run npm run build:data)");
         const [cgAll, mgAll] = await Promise.all([cgRes.json(), mgRes.json()]);
-
-        const cgRow =
-          cgAll.find((r) => String(r.comparison) === String(comparison)) || null;
-        const mgRow =
-          mgAll.find((r) => String(r.comparison) === String(comparison)) || null;
-
+        const cgRow = cgAll.find((r) => String(r.id) === String(id)) || null;
+        const mgRow = mgAll.find((r) => String(r.id) === String(id)) || null;
         setCg(cgRow);
         setMg(mgRow);
 
-        // Fetch existing rating status for each translation (if present)
-        if (cgRow) {
-          const resG = await fetch(
-            `/api/ratings/status?modelUsed=gemma&modelId=${encodeURIComponent(
-              cgRow.id
-            )}&rater=${encodeURIComponent(rater)}`
-          );
-          const jG = resG.ok ? await resG.json() : { exists: false };
-          setAlreadyGemma(!!jG.exists);
-          if (jG && typeof jG.total === "number") setScoreGemma(jG.total);
-        }
-
-        if (mgRow) {
-          const resM = await fetch(
-            `/api/ratings/status?modelUsed=medgemma&modelId=${encodeURIComponent(
-              mgRow.id
-            )}&rater=${encodeURIComponent(rater)}`
-          );
-          const jM = resM.ok ? await resM.json() : { exists: false };
-          setAlreadyMed(!!jM.exists);
-          if (jM && typeof jM.total === "number") setScoreMed(jM.total);
-        }
+        // backend wants gemma/medgemma labels
+        const modelUsed = cgRow ? "gemma" : mgRow ? "medgemma" : "unknown";
+        const res = await fetch(
+          `/api/ratings/status?modelUsed=${encodeURIComponent(modelUsed)}&modelId=${encodeURIComponent(id)}&rater=${encodeURIComponent(rater)}`
+        );
+        const j = res.ok ? await res.json() : { exists: false };
+        setAlready(!!j.exists);
+        if (j && typeof j.total === "number") setScore(j.total);
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load.");
       }
     })();
-  }, [comparison, rater]);
+  }, [id, rater]);
 
-  // English content (shared)
+  const modelUsed = cg ? "gemma" : mg ? "medgemma" : "unknown";
+  const comparison = cg?.comparison || mg?.comparison || "";
+  const datasetId  = cg?.datasetid || mg?.datasetid || "";
+
   const originalDialogue = cg?.originalDialogue || mg?.originalDialogue || "";
   const originalNote     = cg?.originalNote || mg?.originalNote || "";
+  const urduDialogue     = cg ? (cg.chatgptDial || "") : mg ? (mg.medDial || "") : "";
+  const urduNote         = cg ? (cg.chatgptNote || "") : mg ? (mg.medNote || "") : "";
 
-  // Urdu 1 (Gemma)
-  const urduDialogueGemma = cg ? cg.chatgptDial || "" : "";
-  const urduNoteGemma     = cg ? cg.chatgptNote || "" : "";
-
-  // Urdu 2 (MedGemma)
-  const urduDialogueMed   = mg ? mg.medDial || "" : "";
-  const urduNoteMed       = mg ? mg.medNote || "" : "";
-
-  const datasetId =
-    cg?.datasetid || mg?.datasetid || "";
-
-  // Tabs
-  const [engTab, setEngTab]         = useState("dialogue");
-  const [urdGemmaTab, setUrdGemmaTab] = useState("dialogue");
-  const [urdMedTab, setUrdMedTab]     = useState("dialogue");
+  const [engTab, setEngTab] = useState("dialogue");
+  const [urdTab, setUrdTab] = useState("dialogue");
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -99,14 +65,10 @@ export default function Detail() {
         >
           ← Back
         </button>
-        <div className="text-xs text-gray-500">
-          Case {comparison} {datasetId ? `· DatasetID: ${datasetId}` : ""}
-        </div>
         {err && <div className="text-sm text-red-700">{err}</div>}
       </div>
 
-      {/* Main content: English on top, both Urdu panels below */}
-      <div className="flex-1 flex flex-col gap-4 p-4 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-4 p-4 overflow-hidden">
         {/* English */}
         <div className="border rounded-2xl bg-white flex flex-col overflow-hidden">
           <div className="p-4 border-b flex items-center justify-between">
@@ -117,15 +79,9 @@ export default function Detail() {
               </div>
             </div>
             <button
-              onClick={() =>
-                setEngTab(engTab === "dialogue" ? "note" : "dialogue")
-              }
+              onClick={() => setEngTab(engTab === "dialogue" ? "note" : "dialogue")}
               className={`text-xs px-3 py-1 rounded-lg font-semibold transition
-                ${
-                  engTab === "dialogue"
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-orange-500 text-white hover:bg-orange-600"
-                }`}
+                ${engTab === "dialogue" ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-orange-500 text-white hover:bg-orange-600"}`}
             >
               {engTab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
             </button>
@@ -143,133 +99,51 @@ export default function Detail() {
           </div>
         </div>
 
-        {/* Two Urdu panels side by side */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 overflow-hidden">
-          {/* Urdu 1 – Gemma */}
-          <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden"
-            dir="rtl"
-          >
-            <div className="p-4 border-b flex items-center justify-between" dir="ltr">
-              <div>
-                <div className="text-xs text-gray-500">
-                  Urdu 1 (Gemma)
-                </div>
-                <div className="mt-1 font-semibold">
-                  {urdGemmaTab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
-                </div>
+        {/* Urdu */}
+        <div className="border rounded-2xl bg-white flex flex-col overflow-hidden" dir="rtl">
+          <div className="p-4 border-b flex items-center justify-between" dir="ltr">
+            <div>
+              <div className="text-xs text-gray-500">
+                Urdu ({set === "set1" ? "Set 1" : "Set 2"})
               </div>
-              <button
-                onClick={() =>
-                  setUrdGemmaTab(
-                    urdGemmaTab === "dialogue" ? "note" : "dialogue"
-                  )
-                }
-                className={`text-xs px-3 py-1 rounded-lg font-semibold transition
-                  ${
-                    urdGemmaTab === "dialogue"
-                      ? "bg-blue-600 text-white hover:bg-blue-700"
-                      : "bg-orange-500 text-white hover:bg-orange-600"
-                  }`}
-              >
-                {urdGemmaTab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
-              </button>
+              <div className="mt-1 font-semibold">
+                {urdTab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-3">
-              {urdGemmaTab === "dialogue" ? (
-                <pre
-                  dir="rtl"
-                  className="whitespace-pre-wrap font-nastaliq text-xl leading-loose"
-                >
-                  {urduDialogueGemma || "(No Urdu)"}
-                </pre>
-              ) : (
-                <pre
-                  dir="rtl"
-                  className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed"
-                >
-                  {urduNoteGemma || "(No note)"}
-                </pre>
-              )}
-            </div>
+            <button
+              onClick={() => setUrdTab(urdTab === "dialogue" ? "note" : "dialogue")}
+              className={`text-xs px-3 py-1 rounded-lg font-semibold transition
+                ${urdTab === "dialogue" ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-orange-500 text-white hover:bg-orange-600"}`}
+            >
+              {urdTab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
+            </button>
           </div>
-
-          {/* Urdu 2 – MedGemma */}
-          <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden"
-            dir="rtl"
-          >
-            <div className="p-4 border-b flex items-center justify-between" dir="ltr">
-              <div>
-                <div className="text-xs text-gray-500">
-                  Urdu 2 (MedGemma)
-                </div>
-                <div className="mt-1 font-semibold">
-                  {urdMedTab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
-                </div>
-              </div>
-              <button
-                onClick={() =>
-                  setUrdMedTab(urdMedTab === "dialogue" ? "note" : "dialogue")
-                }
-                className={`text-xs px-3 py-1 rounded-lg font-semibold transition
-                  ${
-                    urdMedTab === "dialogue"
-                      ? "bg-blue-600 text-white hover:bg-blue-700"
-                      : "bg-orange-500 text-white hover:bg-orange-600"
-                  }`}
-              >
-                {urdMedTab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-4 py-3">
-              {urdMedTab === "dialogue" ? (
-                <pre
-                  dir="rtl"
-                  className="whitespace-pre-wrap font-nastaliq text-xl leading-loose"
-                >
-                  {urduDialogueMed || "(No Urdu)"}
-                </pre>
-              ) : (
-                <pre
-                  dir="rtl"
-                  className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed"
-                >
-                  {urduNoteMed || "(No note)"}
-                </pre>
-              )}
-            </div>
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            {urdTab === "dialogue" ? (
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq text-xl leading-loose">
+                {urduDialogue || "(No Urdu)"}
+              </pre>
+            ) : (
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed">
+                {urduNote || "(No note)"}
+              </pre>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Ratings for both translations (bottom panel) */}
-      <div className="border-t bg-white p-4 shadow-md space-y-4">
-        {cg && (
-          <RubricForm
-            disabledInitial={alreadyGemma}
-            itemId={cg.id}
-            datasetId={datasetId}
-            comparison={comparison}
-            modelUsed="gemma"
-            rater={rater}
-            score={scoreGemma}
-            setScore={setScoreGemma}
-          />
-        )}
-
-        {mg && (
-          <RubricForm
-            disabledInitial={alreadyMed}
-            itemId={mg.id}
-            datasetId={datasetId}
-            comparison={comparison}
-            modelUsed="medgemma"
-            rater={rater}
-            score={scoreMed}
-            setScore={setScoreMed}
-          />
-        )}
+      {/* Fixed rubric */}
+      <div className="border-t bg-white p-4 shadow-md">
+        <RubricForm
+          disabledInitial={already}
+          itemId={id}
+          datasetId={datasetId}
+          comparison={comparison}
+          modelUsed={modelUsed}
+          rater={rater}
+          score={score}                // ← pass score to form
+          setScore={setScore}          // ← allow form to update score
+        />
       </div>
     </div>
   );
