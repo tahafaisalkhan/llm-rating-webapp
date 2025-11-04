@@ -2,6 +2,15 @@
 import { useEffect, useMemo, useState } from "react";
 
 /**
+ * Tweak this to change how tall the whole rubric area is.
+ * Examples:
+ *  - "max-h-[12rem]"
+ *  - "max-h-[14rem]"
+ *  - "max-h-[18rem]"
+ */
+const AXIS_SCROLL_MAX_H_CLASS = "max-h-[14rem]";
+
+/**
  * Props:
  *  - rater: string
  *  - comparison: string | number
@@ -11,7 +20,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   const [axes, setAxes] = useState(
     () =>
       Array.from({ length: 8 }).map(() => ({
-        winner: null, // 0 tie, 1, 2
+        winner: null, // 0 = tie, 1, 2
         strength: 3, // 1–5 when winner is 1 or 2
       }))
   );
@@ -34,6 +43,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     []
   );
 
+  // Prefill if saved
   useEffect(() => {
     (async () => {
       try {
@@ -151,13 +161,14 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
         { val: 1, label: "1" },
         { val: 2, label: "2" },
         { val: 0, label: "Tie" },
-      ].map((opt) => (
+      ].map((opt, i) => (
         <button
           key={opt.val}
           type="button"
           onClick={() => setAxisWinner(idx, opt.val)}
           className={[
-            "px-2 py-0.5 border-r last:border-r-0",
+            "px-2 py-0.5",
+            i !== 2 ? "border-r" : "",
             winner === opt.val
               ? "bg-black text-white"
               : "bg-white text-gray-800 hover:bg-gray-100",
@@ -188,12 +199,21 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
-      <div className="font-medium text-sm mb-1">
+      <div className="font-semibold text-sm">
         Choose which Urdu translation is better on each axis, and how strongly.
-        (1 = Urdu 1, 2 = Urdu 2, Tie = no difference)
+        <span className="font-normal">
+          {" "}
+          (1 = Urdu 1, 2 = Urdu 2, Tie = no difference)
+        </span>
       </div>
 
-      <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+      {/* All axes: height controlled by AXIS_SCROLL_MAX_H_CLASS */}
+      <div
+        className={[
+          "space-y-2 overflow-y-auto pr-1",
+          AXIS_SCROLL_MAX_H_CLASS,
+        ].join(" ")}
+      >
         {AXES_META.map((ax, idx) => {
           const a = axes[idx];
           const winner = a?.winner;
@@ -205,18 +225,25 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
               key={ax.label}
               className="border rounded-lg px-3 py-2 bg-gray-50"
             >
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-sm font-medium">{ax.label}</div>
-                <WinnerButtons idx={idx} winner={winner} />
-              </div>
-
-              <div className="flex items-center justify-between text-xs">
-                <div className="text-gray-600">
-                  {needsStrength
-                    ? "How strongly do you prefer this Urdu version?"
-                    : "Tie selected – strength not needed."}
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[13px] font-medium">{ax.label}</div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">
+                    {needsStrength
+                      ? "Winner + 1–5 strength."
+                      : "Tie selected – strength not needed."}
+                  </div>
                 </div>
-                <Likert idx={idx} strength={strength} disabled={!needsStrength} />
+
+                {/* Winner buttons + Likert side by side */}
+                <div className="flex items-center gap-2">
+                  <WinnerButtons idx={idx} winner={winner} />
+                  <Likert
+                    idx={idx}
+                    strength={strength}
+                    disabled={!needsStrength}
+                  />
+                </div>
               </div>
             </div>
           );
@@ -239,7 +266,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          className="bg-black text-white rounded px-3 py-1 font-semibold text-sm disabled:opacity-60"
+          className="bg-black text-white rounded px-3 py-1.5 font-semibold text-sm disabled:opacity-60"
           disabled={saving}
         >
           {saving ? "Submitting…" : savedOnce ? "Resubmit" : "Submit"}
