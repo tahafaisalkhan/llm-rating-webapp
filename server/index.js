@@ -5,6 +5,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 
 const ComparisonRating = require("./models/ComparisonRating");
+const NoteCounter = require("./models/NoteCounter"); // 👈 NEW
 
 const MONGO_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/clinical";
@@ -126,6 +127,35 @@ app.get("/api/comparison-ratings/get", async (req, res) => {
   } catch (e) {
     console.error("GET /api/comparison-ratings/get error:", e);
     res.json({ exists: false });
+  }
+});
+
+/** ----------------- NOTE COUNTER (GO TO NOTE CLICKS) ----------------- */
+
+app.post("/api/note-counter/increment", async (req, res) => {
+  try {
+    const { rater, comparison, which } = req.body || {};
+    if (!rater || !comparison || !["english", "urdu1", "urdu2"].includes(which)) {
+      return res.status(400).json({ error: "Missing or invalid fields" });
+    }
+
+    const fieldMap = {
+      english: "englishNote",
+      urdu1: "urdu1Note",
+      urdu2: "urdu2Note",
+    };
+    const field = fieldMap[which];
+
+    const doc = await NoteCounter.findOneAndUpdate(
+      { rater, comparison: String(comparison) },
+      { $inc: { [field]: 1 } },
+      { upsert: true, new: true, lean: true }
+    );
+
+    res.json({ ok: true, counter: doc });
+  } catch (e) {
+    console.error("POST /api/note-counter/increment error:", e);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

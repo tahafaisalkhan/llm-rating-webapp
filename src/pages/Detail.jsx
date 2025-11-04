@@ -34,6 +34,23 @@ export default function Detail() {
   const [urd1Tab, setUrd1Tab] = useState("dialogue");
   const [urd2Tab, setUrd2Tab] = useState("dialogue");
 
+  // 👇 NEW: helper to log "Go to Note" clicks
+  async function logNoteClick(which) {
+    try {
+      await fetch("/api/note-counter/increment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rater,
+          comparison: comparisonId,
+          which, // "english" | "urdu1" | "urdu2"
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to log note click", e);
+    }
+  }
+
   useEffect(() => {
     (async () => {
       try {
@@ -121,9 +138,13 @@ export default function Detail() {
                 </div>
               </div>
               <button
-                onClick={() =>
-                  setEngTab(engTab === "dialogue" ? "note" : "dialogue")
-                }
+                onClick={() => {
+                  const next = engTab === "dialogue" ? "note" : "dialogue";
+                  setEngTab(next);
+                  if (next === "note") {
+                    logNoteClick("english");
+                  }
+                }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
                   engTab === "dialogue"
                     ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -159,9 +180,13 @@ export default function Detail() {
                 </div>
               </div>
               <button
-                onClick={() =>
-                  setUrd1Tab(urd1Tab === "dialogue" ? "note" : "dialogue")
-                }
+                onClick={() => {
+                  const next = urd1Tab === "dialogue" ? "note" : "dialogue";
+                  setUrd1Tab(next);
+                  if (next === "note") {
+                    logNoteClick("urdu1");
+                  }
+                }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
                   urd1Tab === "dialogue"
                     ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -197,9 +222,13 @@ export default function Detail() {
                 </div>
               </div>
               <button
-                onClick={() =>
-                  setUrd2Tab(urd2Tab === "dialogue" ? "note" : "dialogue")
-                }
+                onClick={() => {
+                  const next = urd2Tab === "dialogue" ? "note" : "dialogue";
+                  setUrd2Tab(next);
+                  if (next === "note") {
+                    logNoteClick("urdu2");
+                  }
+                }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
                   urd2Tab === "dialogue"
                     ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -229,7 +258,7 @@ export default function Detail() {
             rater={rater}
             comparison={comparisonId}
             datasetId={datasetId}
-            startedAtMs={startedAtMs}   // ⬅️ pass timer start
+            startedAtMs={startedAtMs}   // timer still passed through
           />
         </div>
       </div>
