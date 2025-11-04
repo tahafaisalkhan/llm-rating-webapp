@@ -110,7 +110,7 @@ export default function Detail() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* English on top – compact, scrollable */}
-        <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[14rem]">
+        <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[12rem]">
           <div className="p-3 border-b flex items-center justify-between">
             <div>
               <div className="text-xs text-gray-500">English</div>
@@ -149,7 +149,7 @@ export default function Detail() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Urdu 1 */}
           <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[21rem]"
+            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[18rem]"
             dir="rtl"
           >
             <div
@@ -191,7 +191,7 @@ export default function Detail() {
 
           {/* Urdu 2 */}
           <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[21rem]"
+            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[18rem]"
             dir="rtl"
           >
             <div
