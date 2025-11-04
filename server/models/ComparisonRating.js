@@ -29,6 +29,9 @@ const ComparisonRatingSchema = new mongoose.Schema(
     },
 
     comments: { type: String, default: "" },
+
+    // NEW: time spent on this case (seconds, optional)
+    durationSeconds: { type: Number, default: null },
   },
   { timestamps: true }
 );

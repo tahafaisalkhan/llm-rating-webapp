@@ -5,7 +5,6 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 
 const ComparisonRating = require("./models/ComparisonRating");
-const NoteCounter = require("./models/NoteCounter"); // ⬅️ NEW
 
 const MONGO_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/clinical";
@@ -31,7 +30,15 @@ app.get("/api/health", (_req, res) =>
 
 app.post("/api/comparison-ratings", async (req, res) => {
   try {
-    const { rater, comparison, datasetId, axes, comments } = req.body || {};
+    const {
+      rater,
+      comparison,
+      datasetId,
+      axes,
+      comments,
+      durationSeconds,
+    } = req.body || {};
+
     if (!rater || !comparison || !axes) {
       return res.status(400).json({ error: "Missing required fields" });
     }
@@ -69,12 +76,19 @@ app.post("/api/comparison-ratings", async (req, res) => {
       }
     }
 
+    // sanitize duration (optional)
+    let dur = null;
+    if (typeof durationSeconds === "number" && durationSeconds >= 0) {
+      dur = Math.round(durationSeconds);
+    }
+
     const filter = { rater, comparison: String(comparison) };
     const update = {
       $set: {
         datasetId: datasetId || "",
         axes,
         comments: comments || "",
+        durationSeconds: dur,
       },
       $setOnInsert: { createdAt: new Date() },
     };
@@ -107,57 +121,11 @@ app.get("/api/comparison-ratings/get", async (req, res) => {
       exists: true,
       axes: doc.axes || null,
       comments: doc.comments || "",
+      durationSeconds: doc.durationSeconds ?? null,
     });
   } catch (e) {
     console.error("GET /api/comparison-ratings/get error:", e);
     res.json({ exists: false });
-  }
-});
-
-/** ----------------- NOTE CLICK COUNTERS ----------------- */
-/**
- * POST /api/note-click
- * body: { rater, comparison, which }
- *   which ∈ "english" | "urdu1" | "urdu2"
- */
-app.post("/api/note-click", async (req, res) => {
-  try {
-    const { rater, comparison, which } = req.body || {};
-    if (
-      !rater ||
-      !comparison ||
-      !["english", "urdu1", "urdu2"].includes(which)
-    ) {
-      return res.status(400).json({ error: "Missing or invalid fields" });
-    }
-
-    const incMap = {
-      english: { englishNote: 1 },
-      urdu1: { urdu1Note: 1 },
-      urdu2: { urdu2Note: 1 },
-    };
-
-    const doc = await NoteCounter.findOneAndUpdate(
-      { rater, comparison: String(comparison) },
-      { $inc: incMap[which] },
-      {
-        upsert: true,
-        new: true,
-        lean: true,
-      }
-    );
-
-    return res.json({
-      ok: true,
-      counts: {
-        englishNote: doc.englishNote || 0,
-        urdu1Note: doc.urdu1Note || 0,
-        urdu2Note: doc.urdu2Note || 0,
-      },
-    });
-  } catch (e) {
-    console.error("POST /api/note-click error:", e);
-    res.status(500).json({ error: "Server error" });
   }
 });
 
