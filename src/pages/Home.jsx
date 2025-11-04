@@ -1,4 +1,3 @@
-// src/pages/Home.jsx
 import { useEffect, useState, useMemo } from "react";
 import PanelCard from "../components/PanelCard";
 import { getRater, clearRater } from "../utils/auth";
@@ -9,10 +8,6 @@ export default function Home() {
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  // Rated status per model+id, e.g. "gemma:123", "medgemma:456"
-  const [ratedMap, setRatedMap] = useState({});
-  const [scoreMap, setScoreMap] = useState({});
-
   useEffect(() => {
     (async () => {
       try {
@@ -21,7 +16,6 @@ export default function Home() {
         const rows = await res.json();
         const arr = Array.isArray(rows) ? rows : [];
         setPairs(arr);
-        await checkStatuses(arr); // fetch persisted rubric status from server
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load paired data.");
@@ -29,67 +23,13 @@ export default function Home() {
     })();
   }, [rater]);
 
-  async function checkStatuses(rows) {
-    const ratedEntries = {};
-    const scoreEntries = {};
-    const fetches = [];
-
-    const handleRating = (key, modelUsed, modelId) =>
-      fetch(
-        `/api/ratings/status?modelUsed=${encodeURIComponent(
-          modelUsed
-        )}&modelId=${encodeURIComponent(modelId)}&rater=${encodeURIComponent(
-          rater
-        )}`
-      )
-        .then((r) => (r.ok ? r.json() : { exists: false }))
-        .then((j) => {
-          if (j?.exists) {
-            ratedEntries[key] = true;
-            if (typeof j.total === "number") scoreEntries[key] = j.total;
-          }
-        })
-        .catch(() => {});
-
-    for (const p of rows) {
-      if (p.chatgpt?.id) {
-        fetches.push(
-          handleRating(`gemma:${p.chatgpt.id}`, "gemma", p.chatgpt.id)
-        );
-      }
-      if (p.medgemma?.id) {
-        fetches.push(
-          handleRating(
-            `medgemma:${p.medgemma.id}`,
-            "medgemma",
-            p.medgemma.id
-          )
-        );
-      }
-    }
-
-    await Promise.all(fetches);
-
-    setRatedMap(ratedEntries);
-    setScoreMap(scoreEntries);
-  }
-
-  // One item per comparison
+  // One item per comparison, only need comparison + datasetid
   const viewCases = useMemo(() => {
-    return pairs.map((p) => {
-      const gemmaKey = p.chatgpt?.id ? `gemma:${p.chatgpt.id}` : null;
-      const medKey = p.medgemma?.id ? `medgemma:${p.medgemma.id}` : null;
-
-      return {
-        comparison: p.comparison,
-        datasetid: p.chatgpt?.datasetid || p.medgemma?.datasetid || "",
-        gemmaRated: gemmaKey ? !!ratedMap[gemmaKey] : false,
-        medgemmaRated: medKey ? !!ratedMap[medKey] : false,
-        gemmaScore: gemmaKey ? scoreMap[gemmaKey] : undefined,
-        medgemmaScore: medKey ? scoreMap[medKey] : undefined,
-      };
-    });
-  }, [pairs, ratedMap, scoreMap]);
+    return pairs.map((p) => ({
+      comparison: p.comparison,
+      datasetid: p.chatgpt?.datasetid || p.medgemma?.datasetid || "",
+    }));
+  }, [pairs]);
 
   return (
     <div className="max-w-5xl mx-auto py-6 space-y-4">
@@ -132,12 +72,9 @@ export default function Home() {
             key={c.comparison}
             comparison={c.comparison}
             datasetid={c.datasetid}
-            gemmaRated={c.gemmaRated}
-            medgemmaRated={c.medgemmaRated}
-            gemmaScore={c.gemmaScore}
-            medgemmaScore={c.medgemmaScore}
           />
         ))}
+
         {viewCases.length === 0 && !err && (
           <div className="text-sm text-gray-500">No cases found.</div>
         )}
