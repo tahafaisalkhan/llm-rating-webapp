@@ -158,8 +158,8 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   const WinnerButtons = ({ idx, winner }) => (
     <div className="inline-flex rounded-md shadow-sm overflow-hidden border text-[11px]">
       {[
-        { val: 1, label: "1" },
-        { val: 2, label: "2" },
+        { val: 1, label: "Translation 1" },
+        { val: 2, label: "Translation 2" },
         { val: 0, label: "Tie" },
       ].map((opt, i) => (
         <button
@@ -180,15 +180,14 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     </div>
   );
 
-  const Likert = ({ idx, strength, disabled }) => (
+  const Likert = ({ idx, strength }) => (
     <div className="flex items-center gap-1 text-[10px]">
       {[1, 2, 3, 4, 5].map((n) => (
         <label key={n} className="inline-flex items-center gap-0.5">
           <input
             type="radio"
-            disabled={disabled}
             checked={strength === n}
-            onChange={() => !disabled && setAxisStrength(idx, n)}
+            onChange={() => setAxisStrength(idx, n)}
             className="h-3 w-3"
           />
           <span>{n}</span>
@@ -203,7 +202,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
         Choose which Urdu translation is better on each axis, and how strongly.
         <span className="font-normal">
           {" "}
-          (1 = Urdu 1, 2 = Urdu 2, Tie = no difference)
+          (Translation&nbsp;1 vs Translation&nbsp;2 vs Tie)
         </span>
       </div>
 
@@ -225,24 +224,23 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
               key={ax.label}
               className="border rounded-lg px-3 py-2 bg-gray-50"
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-2">
+                {/* Axis label + helper text */}
                 <div>
                   <div className="text-[13px] font-medium">{ax.label}</div>
                   <div className="text-[11px] text-gray-500 mt-0.5">
                     {needsStrength
-                      ? "Winner + 1–5 strength."
-                      : "Tie selected – strength not needed."}
+                      ? "Winner chosen – now rate how strong the preference is (1–5)."
+                      : "Pick Translation 1, Translation 2, or Tie."}
                   </div>
                 </div>
 
-                {/* Winner buttons + Likert side by side */}
-                <div className="flex items-center gap-2">
+                {/* Buttons & Likert LEFT-aligned under the label */}
+                <div className="flex items-center gap-3">
                   <WinnerButtons idx={idx} winner={winner} />
-                  <Likert
-                    idx={idx}
-                    strength={strength}
-                    disabled={!needsStrength}
-                  />
+                  {needsStrength && (
+                    <Likert idx={idx} strength={strength} />
+                  )}
                 </div>
               </div>
             </div>
