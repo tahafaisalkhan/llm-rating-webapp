@@ -26,7 +26,7 @@ export default function Detail() {
   const [row, setRow] = useState(null);
   const [err, setErr] = useState("");
 
-  // ⬇️ move these hooks up here so they are ALWAYS called
+  // tab state – must be declared before any conditional return
   const [engTab, setEngTab] = useState("dialogue");
   const [urd1Tab, setUrd1Tab] = useState("dialogue");
   const [urd2Tab, setUrd2Tab] = useState("dialogue");
@@ -51,8 +51,6 @@ export default function Detail() {
     })();
   }, [comparisonId]);
 
-  // ✅ it’s fine to early-return based on state/props,
-  // as long as all hooks are defined above.
   if (!row) {
     return (
       <div className="h-screen flex flex-col">
@@ -72,8 +70,7 @@ export default function Detail() {
     );
   }
 
-  const datasetId =
-    row.chatgpt?.datasetid || row.medgemma?.datasetid || "";
+  const datasetId = row.chatgpt?.datasetid || row.medgemma?.datasetid || "";
 
   const originalDialogue =
     row.chatgpt?.originalDialogue || row.medgemma?.originalDialogue || "";
@@ -112,12 +109,12 @@ export default function Detail() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* English on top */}
-        <div className="border rounded-2xl bg-white flex flex-col overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
+        {/* English on top – compact, scrollable */}
+        <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-64">
+          <div className="p-3 border-b flex items-center justify-between">
             <div>
               <div className="text-xs text-gray-500">English</div>
-              <div className="mt-1 font-semibold">
+              <div className="mt-1 font-semibold text-sm">
                 {engTab === "dialogue" ? "Original Dialogue" : "Original Note"}
               </div>
             </div>
@@ -125,7 +122,7 @@ export default function Detail() {
               onClick={() =>
                 setEngTab(engTab === "dialogue" ? "note" : "dialogue")
               }
-              className={`text-xs px-3 py-1 rounded-lg font-semibold transition
+              className={`text-xs px-2 py-1 rounded-lg font-semibold transition
                 ${
                   engTab === "dialogue"
                     ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -135,33 +132,33 @@ export default function Detail() {
               {engTab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3">
+          <div className="flex-1 overflow-y-auto px-3 py-2 text-sm leading-relaxed">
             {engTab === "dialogue" ? (
-              <pre className="whitespace-pre-wrap leading-relaxed text-[15px]">
+              <pre className="whitespace-pre-wrap">
                 {originalDialogue || "(No dialogue found)"}
               </pre>
             ) : (
-              <pre className="whitespace-pre-wrap leading-relaxed text-[14px]">
+              <pre className="whitespace-pre-wrap">
                 {originalNote || "(No note)"}
               </pre>
             )}
           </div>
         </div>
 
-        {/* Urdu 1 + Urdu 2 side by side */}
+        {/* Urdu 1 + Urdu 2 side by side – compact, scrollable */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Urdu 1 */}
           <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden"
+            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-96"
             dir="rtl"
           >
             <div
-              className="p-4 border-b flex items-center justify-between"
+              className="p-3 border-b flex items-center justify-between"
               dir="ltr"
             >
               <div>
                 <div className="text-xs text-gray-500">Urdu 1</div>
-                <div className="mt-1 font-semibold">
+                <div className="mt-1 font-semibold text-sm">
                   {urd1Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
                 </div>
               </div>
@@ -169,7 +166,7 @@ export default function Detail() {
                 onClick={() =>
                   setUrd1Tab(urd1Tab === "dialogue" ? "note" : "dialogue")
                 }
-                className={`text-xs px-3 py-1 rounded-lg font-semibold transition
+                className={`text-xs px-2 py-1 rounded-lg font-semibold transition
                   ${
                     urd1Tab === "dialogue"
                       ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -179,19 +176,13 @@ export default function Detail() {
                 {urd1Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-3">
+            <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
               {urd1Tab === "dialogue" ? (
-                <pre
-                  dir="rtl"
-                  className="whitespace-pre-wrap font-nastaliq text-xl leading-loose"
-                >
+                <pre dir="rtl" className="whitespace-pre-wrap">
                   {urdu1Dialogue || "(No Urdu)"}
                 </pre>
               ) : (
-                <pre
-                  dir="rtl"
-                  className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed"
-                >
+                <pre dir="rtl" className="whitespace-pre-wrap">
                   {urdu1Note || "(No note)"}
                 </pre>
               )}
@@ -200,16 +191,16 @@ export default function Detail() {
 
           {/* Urdu 2 */}
           <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden"
+            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-96"
             dir="rtl"
           >
             <div
-              className="p-4 border-b flex items-center justify-between"
+              className="p-3 border-b flex items-center justify-between"
               dir="ltr"
             >
               <div>
                 <div className="text-xs text-gray-500">Urdu 2</div>
-                <div className="mt-1 font-semibold">
+                <div className="mt-1 font-semibold text-sm">
                   {urd2Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
                 </div>
               </div>
@@ -217,7 +208,7 @@ export default function Detail() {
                 onClick={() =>
                   setUrd2Tab(urd2Tab === "dialogue" ? "note" : "dialogue")
                 }
-                className={`text-xs px-3 py-1 rounded-lg font-semibold transition
+                className={`text-xs px-2 py-1 rounded-lg font-semibold transition
                   ${
                     urd2Tab === "dialogue"
                       ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -227,19 +218,13 @@ export default function Detail() {
                 {urd2Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-3">
+            <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
               {urd2Tab === "dialogue" ? (
-                <pre
-                  dir="rtl"
-                  className="whitespace-pre-wrap font-nastaliq text-xl leading-loose"
-                >
+                <pre dir="rtl" className="whitespace-pre-wrap">
                   {urdu2Dialogue || "(No Urdu)"}
                 </pre>
               ) : (
-                <pre
-                  dir="rtl"
-                  className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed"
-                >
+                <pre dir="rtl" className="whitespace-pre-wrap">
                   {urdu2Note || "(No note)"}
                 </pre>
               )}
