@@ -1,271 +1,178 @@
-// src/pages/Detail.jsx
-import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { getRater } from "../utils/auth";
-import ComparisonRubricForm from "../components/ComparisonRubricForm";
+// server/index.js
+const path = require("path");
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
 
-function hash32(str) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  h += h << 13;
-  h ^= h >>> 7;
-  h += h << 3;
-  h ^= h >>> 17;
-  h += h << 5;
-  return h >>> 0;
-}
+const ComparisonRating = require("./models/ComparisonRating");
+const NoteCounter = require("./models/NoteCounter"); // ⬅️ NEW
 
-export default function Detail() {
-  const { comparisonId } = useParams();
-  const navigate = useNavigate();
-  const rater = getRater() || "";
+const MONGO_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/clinical";
+const MONGO_DB = process.env.MONGODB_DB || "clinical_ratings";
 
-  const [row, setRow] = useState(null);
-  const [err, setErr] = useState("");
+mongoose
+  .connect(MONGO_URI, { dbName: MONGO_DB })
+  .then(() => console.log("✅ Mongo connected"))
+  .catch((e) => {
+    console.error("❌ Mongo connect error:", e.message);
+    process.exit(1);
+  });
 
-  // tab state
-  const [engTab, setEngTab] = useState("dialogue");
-  const [urd1Tab, setUrd1Tab] = useState("dialogue");
-  const [urd2Tab, setUrd2Tab] = useState("dialogue");
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "1mb" }));
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setErr("");
-        const res = await fetch("/data/paired.json");
-        if (!res.ok) throw new Error("Missing /data/paired.json");
-        const all = await res.json();
-        const arr = Array.isArray(all) ? all : [];
-        const hit =
-          arr.find((p) => String(p.comparison) === String(comparisonId)) ||
-          null;
-        if (!hit) throw new Error("Case not found");
-        setRow(hit);
-      } catch (e) {
-        console.error(e);
-        setErr(e.message || "Failed to load case.");
-      }
-    })();
-  }, [comparisonId]);
+app.get("/api/health", (_req, res) =>
+  res.json({ ok: true, via: "render-web", ts: Date.now() })
+);
 
-  // ⬇️ helper to log note clicks
-  async function recordNoteClick(which) {
-    try {
-      await fetch("/api/note-click", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rater,
-          comparison: comparisonId,
-          which, // "english" | "urdu1" | "urdu2"
-        }),
-      });
-    } catch (e) {
-      console.error("Failed to record note click", e);
+/** ----------------- COMPARISON RATINGS (PER CASE) ----------------- */
+
+app.post("/api/comparison-ratings", async (req, res) => {
+  try {
+    const { rater, comparison, datasetId, axes, comments } = req.body || {};
+    if (!rater || !comparison || !axes) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
-  }
 
-  if (!row) {
-    return (
-      <div className="h-screen flex flex-col">
-        <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-sm text-blue-600 hover:underline"
-          >
-            ← Back
-          </button>
-          <div className="text-xs text-gray-500">Case #{comparisonId}</div>
-        </div>
-        <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
-          {err ? err : "Loading…"}
-        </div>
-      </div>
+    const requiredAxes = [
+      "axis1",
+      "axis2",
+      "axis3",
+      "axis4",
+      "axis5",
+      "axis6",
+      "axis7",
+      "axis8",
+    ];
+
+    for (const ax of requiredAxes) {
+      const a = axes[ax];
+      if (!a || typeof a.winner !== "number") {
+        return res
+          .status(400)
+          .json({ error: `Axis ${ax} must have a winner` });
+      }
+      if (![0, 1, 2].includes(a.winner)) {
+        return res
+          .status(400)
+          .json({ error: `Axis ${ax} winner must be 0,1,2` });
+      }
+      if (
+        a.winner !== 0 &&
+        (a.strength == null || a.strength < 1 || a.strength > 5)
+      ) {
+        return res.status(400).json({
+          error: `Axis ${ax} strength must be 1–5 when winner is 1 or 2`,
+        });
+      }
+    }
+
+    const filter = { rater, comparison: String(comparison) };
+    const update = {
+      $set: {
+        datasetId: datasetId || "",
+        axes,
+        comments: comments || "",
+      },
+      $setOnInsert: { createdAt: new Date() },
+    };
+
+    const doc = await ComparisonRating.findOneAndUpdate(filter, update, {
+      upsert: true,
+      new: true,
+      lean: true,
+    });
+
+    return res.status(200).json({ ok: true, id: doc._id });
+  } catch (e) {
+    console.error("POST /api/comparison-ratings error:", e);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get("/api/comparison-ratings/get", async (req, res) => {
+  try {
+    const { comparison, rater } = req.query;
+    if (!comparison || !rater) return res.json({ exists: false });
+
+    const doc = await ComparisonRating.findOne({
+      comparison: String(comparison),
+      rater,
+    }).lean();
+    if (!doc) return res.json({ exists: false });
+
+    res.json({
+      exists: true,
+      axes: doc.axes || null,
+      comments: doc.comments || "",
+    });
+  } catch (e) {
+    console.error("GET /api/comparison-ratings/get error:", e);
+    res.json({ exists: false });
+  }
+});
+
+/** ----------------- NOTE CLICK COUNTERS ----------------- */
+/**
+ * POST /api/note-click
+ * body: { rater, comparison, which }
+ *   which ∈ "english" | "urdu1" | "urdu2"
+ */
+app.post("/api/note-click", async (req, res) => {
+  try {
+    const { rater, comparison, which } = req.body || {};
+    if (
+      !rater ||
+      !comparison ||
+      !["english", "urdu1", "urdu2"].includes(which)
+    ) {
+      return res.status(400).json({ error: "Missing or invalid fields" });
+    }
+
+    const incMap = {
+      english: { englishNote: 1 },
+      urdu1: { urdu1Note: 1 },
+      urdu2: { urdu2Note: 1 },
+    };
+
+    const doc = await NoteCounter.findOneAndUpdate(
+      { rater, comparison: String(comparison) },
+      { $inc: incMap[which] },
+      {
+        upsert: true,
+        new: true,
+        lean: true,
+      }
     );
+
+    return res.json({
+      ok: true,
+      counts: {
+        englishNote: doc.englishNote || 0,
+        urdu1Note: doc.urdu1Note || 0,
+        urdu2Note: doc.urdu2Note || 0,
+      },
+    });
+  } catch (e) {
+    console.error("POST /api/note-click error:", e);
+    res.status(500).json({ error: "Server error" });
   }
+});
 
-  const datasetId = row.chatgpt?.datasetid || row.medgemma?.datasetid || "";
+/** ---------- Default route redirect to /login ---------- */
+app.get("/", (_req, res) => {
+  res.redirect("/login");
+});
 
-  const originalDialogue =
-    row.chatgpt?.originalDialogue || row.medgemma?.originalDialogue || "";
-  const originalNote =
-    row.chatgpt?.originalNote || row.medgemma?.originalNote || "";
+/** -------------- Serve SPA -------------- */
+const DIST_DIR = path.join(__dirname, "..", "dist");
+app.use(express.static(DIST_DIR));
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
+  res.sendFile(path.join(DIST_DIR, "index.html"));
+});
 
-  const flip = (hash32(String(row.comparison)) & 1) === 1;
-  const urdu1 = flip ? row.medgemma : row.chatgpt;
-  const urdu2 = flip ? row.chatgpt : row.medgemma;
-
-  const urdu1Dialogue = urdu1?.chatgptDial || urdu1?.medDial || "";
-  const urdu1Note = urdu1?.chatgptNote || urdu1?.medNote || "";
-  const urdu2Dialogue = urdu2?.chatgptDial || urdu2?.medDial || "";
-  const urdu2Note = urdu2?.chatgptNote || urdu2?.medNote || "";
-
-  return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      {/* Top bar */}
-      <div className="px-4 py-2 border-b bg-gray-50 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-sm text-blue-600 hover:underline"
-          >
-            ← Back
-          </button>
-          <div className="text-xs text-gray-500">
-            Case #{comparisonId} · DatasetID:{" "}
-            <span className="font-semibold">{datasetId || "-"}</span>
-          </div>
-        </div>
-        {err && <div className="text-sm text-red-700">{err}</div>}
-      </div>
-
-      {/* Three panels in one row */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* English */}
-          <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]">
-            <div className="p-3 border-b flex items-center justify-between">
-              <div>
-                <div className="text-xs text-gray-500">English</div>
-                <div className="mt-1 font-semibold text-sm">
-                  {engTab === "dialogue" ? "Original Dialogue" : "Original Note"}
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  if (engTab === "dialogue") {
-                    // going TO note → count it
-                    recordNoteClick("english");
-                    setEngTab("note");
-                  } else {
-                    setEngTab("dialogue");
-                  }
-                }}
-                className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
-                  engTab === "dialogue"
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-orange-500 text-white hover:bg-orange-600"
-                }`}
-              >
-                {engTab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-3 py-2 text-sm leading-relaxed">
-              {engTab === "dialogue" ? (
-                <pre className="whitespace-pre-wrap">
-                  {originalDialogue || "(No dialogue found)"}
-                </pre>
-              ) : (
-                <pre className="whitespace-pre-wrap">
-                  {originalNote || "(No note)"}
-                </pre>
-              )}
-            </div>
-          </div>
-
-          {/* Urdu 1 */}
-          <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]"
-            dir="rtl"
-          >
-            <div className="p-3 border-b flex items-center justify-between" dir="ltr">
-              <div>
-                <div className="text-xs text-gray-500">
-                  Urdu (Gemma Translation)
-                </div>
-                <div className="mt-1 font-semibold text-sm">
-                  {urd1Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  if (urd1Tab === "dialogue") {
-                    recordNoteClick("urdu1");
-                    setUrd1Tab("note");
-                  } else {
-                    setUrd1Tab("dialogue");
-                  }
-                }}
-                className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
-                  urd1Tab === "dialogue"
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-orange-500 text-white hover:bg-orange-600"
-                }`}
-              >
-                {urd1Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              {urd1Tab === "dialogue" ? (
-                <pre dir="rtl" className="whitespace-pre-wrap">
-                  {urdu1Dialogue || "(No Urdu)"}
-                </pre>
-              ) : (
-                <pre dir="rtl" className="whitespace-pre-wrap">
-                  {urdu1Note || "(No note)"}
-                </pre>
-              )}
-            </div>
-          </div>
-
-          {/* Urdu 2 */}
-          <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]"
-            dir="rtl"
-          >
-            <div className="p-3 border-b flex items-center justify-between" dir="ltr">
-              <div>
-                <div className="text-xs text-gray-500">
-                  Urdu (MedGemma Translation)
-                </div>
-                <div className="mt-1 font-semibold text-sm">
-                  {urd2Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  if (urd2Tab === "dialogue") {
-                    recordNoteClick("urdu2");
-                    setUrd2Tab("note");
-                  } else {
-                    setUrd2Tab("dialogue");
-                  }
-                }}
-                className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
-                  urd2Tab === "dialogue"
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-orange-500 text-white hover:bg-orange-600"
-                }`}
-              >
-                {urd2Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              {urd2Tab === "dialogue" ? (
-                <pre dir="rtl" className="whitespace-pre-wrap">
-                  {urdu2Dialogue || "(No Urdu)"}
-                </pre>
-              ) : (
-                <pre dir="rtl" className="whitespace-pre-wrap">
-                  {urdu2Note || "(No note)"}
-                </pre>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Rating panel */}
-        <div className="border rounded-2xl bg-white p-4 shadow-md">
-          <ComparisonRubricForm
-            rater={rater}
-            comparison={comparisonId}
-            datasetId={datasetId}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => console.log(`🚀 Server listening on ${PORT}`));
