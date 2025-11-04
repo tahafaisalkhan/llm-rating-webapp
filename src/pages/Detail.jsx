@@ -1,99 +1,94 @@
+// src/pages/Detail.jsx
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import RubricForm from "../components/RubricForm";
 import { getRater } from "../utils/auth";
+import ComparisonRubricForm from "../components/ComparisonRubricForm";
+
+function hash32(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  h += h << 13;
+  h ^= h >>> 7;
+  h += h << 3;
+  h ^= h >>> 17;
+  h += h << 5;
+  return h >>> 0;
+}
 
 export default function Detail() {
-  const { comparisonId } = useParams(); // 👈 from /case/:comparisonId
+  const { comparisonId } = useParams();
   const navigate = useNavigate();
-
-  const [cg, setCg] = useState(null); // Gemma row
-  const [mg, setMg] = useState(null); // MedGemma row
-  const [err, setErr] = useState("");
-
-  const [alreadyGemma, setAlreadyGemma] = useState(false);
-  const [scoreGemma, setScoreGemma] = useState(null);
-
-  const [alreadyMed, setAlreadyMed] = useState(false);
-  const [scoreMed, setScoreMed] = useState(null);
-
   const rater = getRater() || "";
 
-  const [engTab, setEngTab] = useState("dialogue");
-  const [urdGemTab, setUrdGemTab] = useState("dialogue");
-  const [urdMedTab, setUrdMedTab] = useState("dialogue");
+  const [row, setRow] = useState(null);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
         setErr("");
-        setCg(null);
-        setMg(null);
-        setAlreadyGemma(false);
-        setAlreadyMed(false);
-        setScoreGemma(null);
-        setScoreMed(null);
-
-        const [cgRes, mgRes] = await Promise.all([
-          fetch("/data/chatgpt.json"),
-          fetch("/data/medgemma.json"),
-        ]);
-        if (!cgRes.ok || !mgRes.ok)
-          throw new Error("Missing JSON (run npm run build:data)");
-
-        const [cgAll, mgAll] = await Promise.all([cgRes.json(), mgRes.json()]);
-
-        // rows for this comparison
-        const cgRow =
-          cgAll.find(
-            (r) => String(r.comparison) === String(comparisonId)
-          ) || null;
-        const mgRow =
-          mgAll.find(
-            (r) => String(r.comparison) === String(comparisonId)
-          ) || null;
-
-        setCg(cgRow);
-        setMg(mgRow);
-
-        // rating status
-        if (cgRow) {
-          const resG = await fetch(
-            `/api/ratings/status?modelUsed=gemma&modelId=${encodeURIComponent(
-              cgRow.id
-            )}&rater=${encodeURIComponent(rater)}`
-          );
-          const jG = resG.ok ? await resG.json() : { exists: false };
-          setAlreadyGemma(!!jG.exists);
-          if (jG && typeof jG.total === "number") setScoreGemma(jG.total);
-        }
-
-        if (mgRow) {
-          const resM = await fetch(
-            `/api/ratings/status?modelUsed=medgemma&modelId=${encodeURIComponent(
-              mgRow.id
-            )}&rater=${encodeURIComponent(rater)}`
-          );
-          const jM = resM.ok ? await resM.json() : { exists: false };
-          setAlreadyMed(!!jM.exists);
-          if (jM && typeof jM.total === "number") setScoreMed(jM.total);
-        }
+        const res = await fetch("/data/paired.json");
+        if (!res.ok) throw new Error("Missing /data/paired.json");
+        const all = await res.json();
+        const arr = Array.isArray(all) ? all : [];
+        const hit =
+          arr.find((p) => String(p.comparison) === String(comparisonId)) ||
+          null;
+        if (!hit) throw new Error("Case not found");
+        setRow(hit);
       } catch (e) {
         console.error(e);
-        setErr(e.message || "Failed to load.");
+        setErr(e.message || "Failed to load case.");
       }
     })();
-  }, [comparisonId, rater]);
+  }, [comparisonId]);
 
-  const datasetId = cg?.datasetid || mg?.datasetid || "";
-  const originalDialogue = cg?.originalDialogue || mg?.originalDialogue || "";
-  const originalNote = cg?.originalNote || mg?.originalNote || "";
+  if (!row) {
+    return (
+      <div className="h-screen flex flex-col">
+        <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            ← Back
+          </button>
+          <div className="text-xs text-gray-500">
+            Case #{comparisonId}
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
+          {err ? err : "Loading…"}
+        </div>
+      </div>
+    );
+  }
 
-  const urduDialogueGemma = cg?.chatgptDial || "";
-  const urduNoteGemma = cg?.chatgptNote || "";
+  const datasetId =
+    row.chatgpt?.datasetid || row.medgemma?.datasetid || "";
 
-  const urduDialogueMed = mg?.medDial || "";
-  const urduNoteMed = mg?.medNote || "";
+  const originalDialogue =
+    row.chatgpt?.originalDialogue || row.medgemma?.originalDialogue || "";
+  const originalNote =
+    row.chatgpt?.originalNote || row.medgemma?.originalNote || "";
+
+  // Blind which model is 1 vs 2 using deterministic flip
+  const flip = (hash32(String(row.comparison)) & 1) === 1;
+  const urdu1 = flip ? row.medgemma : row.chatgpt;
+  const urdu2 = flip ? row.chatgpt : row.medgemma;
+
+  const [engTab, setEngTab] = useState("dialogue");
+  const [urd1Tab, setUrd1Tab] = useState("dialogue");
+  const [urd2Tab, setUrd2Tab] = useState("dialogue");
+
+  const urdu1Dialogue = urdu1?.chatgptDial || urdu1?.medDial || "";
+  const urdu1Note = urdu1?.chatgptNote || urdu1?.medNote || "";
+
+  const urdu2Dialogue = urdu2?.chatgptDial || urdu2?.medDial || "";
+  const urdu2Note = urdu2?.chatgptNote || urdu2?.medNote || "";
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -114,9 +109,9 @@ export default function Detail() {
         {err && <div className="text-sm text-red-700">{err}</div>}
       </div>
 
-      {/* Main text area */}
-      <div className="flex-1 grid grid-cols-1 xl:grid-cols-3 gap-4 p-4 overflow-hidden">
-        {/* English */}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* English on top */}
         <div className="border rounded-2xl bg-white flex flex-col overflow-hidden">
           <div className="p-4 border-b flex items-center justify-between">
             <div>
@@ -152,146 +147,106 @@ export default function Detail() {
           </div>
         </div>
 
-        {/* Urdu – Gemma */}
-        <div
-          className="border rounded-2xl bg-white flex flex-col overflow-hidden"
-          dir="rtl"
-        >
-          <div className="p-4 border-b flex items-center justify-between" dir="ltr">
-            <div>
-              <div className="text-xs text-gray-500">
-                Urdu (Gemma Translation)
+        {/* Urdu 1 + Urdu 2 side by side */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Urdu 1 */}
+          <div
+            className="border rounded-2xl bg-white flex flex-col overflow-hidden"
+            dir="rtl"
+          >
+            <div className="p-4 border-b flex items-center justify-between" dir="ltr">
+              <div>
+                <div className="text-xs text-gray-500">Urdu 1</div>
+                <div className="mt-1 font-semibold">
+                  {urd1Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
+                </div>
               </div>
-              <div className="mt-1 font-semibold">
-                {urdGemTab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
-              </div>
+              <button
+                onClick={() =>
+                  setUrd1Tab(urd1Tab === "dialogue" ? "note" : "dialogue")
+                }
+                className={`text-xs px-3 py-1 rounded-lg font-semibold transition
+                  ${
+                    urd1Tab === "dialogue"
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-orange-500 text-white hover:bg-orange-600"
+                  }`}
+              >
+                {urd1Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
+              </button>
             </div>
-            <button
-              onClick={() =>
-                setUrdGemTab(
-                  urdGemTab === "dialogue" ? "note" : "dialogue"
-                )
-              }
-              className={`text-xs px-3 py-1 rounded-lg font-semibold transition
-                ${
-                  urdGemTab === "dialogue"
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-orange-500 text-white hover:bg-orange-600"
-                }`}
-            >
-              {urdGemTab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
-            </button>
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              {urd1Tab === "dialogue" ? (
+                <pre
+                  dir="rtl"
+                  className="whitespace-pre-wrap font-nastaliq text-xl leading-loose"
+                >
+                  {urdu1Dialogue || "(No Urdu)"}
+                </pre>
+              ) : (
+                <pre
+                  dir="rtl"
+                  className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed"
+                >
+                  {urdu1Note || "(No note)"}
+                </pre>
+              )}
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3">
-            {urdGemTab === "dialogue" ? (
-              <pre
-                dir="rtl"
-                className="whitespace-pre-wrap font-nastaliq text-xl leading-loose"
+
+          {/* Urdu 2 */}
+          <div
+            className="border rounded-2xl bg-white flex flex-col overflow-hidden"
+            dir="rtl"
+          >
+            <div className="p-4 border-b flex items-center justify-between" dir="ltr">
+              <div>
+                <div className="text-xs text-gray-500">Urdu 2</div>
+                <div className="mt-1 font-semibold">
+                  {urd2Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
+                </div>
+              </div>
+              <button
+                onClick={() =>
+                  setUrd2Tab(urd2Tab === "dialogue" ? "note" : "dialogue")
+                }
+                className={`text-xs px-3 py-1 rounded-lg font-semibold transition
+                  ${
+                    urd2Tab === "dialogue"
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-orange-500 text-white hover:bg-orange-600"
+                  }`}
               >
-                {urduDialogueGemma || "(No Urdu)"}
-              </pre>
-            ) : (
-              <pre
-                dir="rtl"
-                className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed"
-              >
-                {urduNoteGemma || "(No note)"}
-              </pre>
-            )}
+                {urd2Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              {urd2Tab === "dialogue" ? (
+                <pre
+                  dir="rtl"
+                  className="whitespace-pre-wrap font-nastaliq text-xl leading-loose"
+                >
+                  {urdu2Dialogue || "(No Urdu)"}
+                </pre>
+              ) : (
+                <pre
+                  dir="rtl"
+                  className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed"
+                >
+                  {urdu2Note || "(No note)"}
+                </pre>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Urdu – MedGemma */}
-        <div
-          className="border rounded-2xl bg-white flex flex-col overflow-hidden"
-          dir="rtl"
-        >
-          <div className="p-4 border-b flex items-center justify-between" dir="ltr">
-            <div>
-              <div className="text-xs text-gray-500">
-                Urdu (MedGemma Translation)
-              </div>
-              <div className="mt-1 font-semibold">
-                {urdMedTab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
-              </div>
-            </div>
-            <button
-              onClick={() =>
-                setUrdMedTab(
-                  urdMedTab === "dialogue" ? "note" : "dialogue"
-                )
-              }
-              className={`text-xs px-3 py-1 rounded-lg font-semibold transition
-                ${
-                  urdMedTab === "dialogue"
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-orange-500 text-white hover:bg-orange-600"
-                }`}
-            >
-              {urdMedTab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3">
-            {urdMedTab === "dialogue" ? (
-              <pre
-                dir="rtl"
-                className="whitespace-pre-wrap font-nastaliq text-xl leading-loose"
-              >
-                {urduDialogueMed || "(No Urdu)"}
-              </pre>
-            ) : (
-              <pre
-                dir="rtl"
-                className="whitespace-pre-wrap font-nastaliq text-lg leading-relaxed"
-              >
-                {urduNoteMed || "(No note)"}
-              </pre>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Rubrics */}
-      <div className="border-t bg-white p-4 shadow-md">
-        <div className="mb-2 font-semibold text-sm">
-          Rate each Urdu translation separately:
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {cg && (
-            <div>
-              <div className="mb-1 text-sm font-semibold">
-                Gemma Translation
-              </div>
-              <RubricForm
-                disabledInitial={alreadyGemma}
-                itemId={cg.id}
-                datasetId={datasetId}
-                comparison={comparisonId}
-                modelUsed="gemma"
-                rater={rater}
-                score={scoreGemma}
-                setScore={setScoreGemma}
-              />
-            </div>
-          )}
-
-          {mg && (
-            <div>
-              <div className="mb-1 text-sm font-semibold">
-                MedGemma Translation
-              </div>
-              <RubricForm
-                disabledInitial={alreadyMed}
-                itemId={mg.id}
-                datasetId={datasetId}
-                comparison={comparisonId}
-                modelUsed="medgemma"
-                rater={rater}
-                score={scoreMed}
-                setScore={setScoreMed}
-              />
-            </div>
-          )}
+        {/* Rating panel */}
+        <div className="border rounded-2xl bg-white p-4 shadow-md">
+          <ComparisonRubricForm
+            rater={rater}
+            comparison={comparisonId}
+            datasetId={datasetId}
+          />
         </div>
       </div>
     </div>

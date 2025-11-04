@@ -1,3 +1,4 @@
+// src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -29,7 +30,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           }
         />
 
-        {/* NEW route for the case view */}
         <Route
           path="/case/:comparisonId"
           element={
@@ -39,7 +39,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           }
         />
 
-        {/* Old rubric page still available */}
         <Route
           path="/rubric"
           element={

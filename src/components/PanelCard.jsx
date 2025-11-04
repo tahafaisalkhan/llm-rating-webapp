@@ -1,3 +1,4 @@
+// src/components/PanelCard.jsx
 import { Link } from "react-router-dom";
 
 /**
