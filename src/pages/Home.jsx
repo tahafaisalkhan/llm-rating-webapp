@@ -1,6 +1,6 @@
+// src/pages/Home.jsx
 import { useEffect, useState, useMemo } from "react";
-import PanelCard from "../components/PanelCard";
-import PreferenceBox from "../components/PreferenceBox";
+import { Link } from "react-router-dom";
 import { getRater, clearRater } from "../utils/auth";
 
 function hash32(str) {
@@ -21,11 +21,7 @@ export default function Home() {
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
 
-  // selected: { [comparison]: 0|1|2 }  (0=tie)
-  const [selected, setSelected] = useState({});
-  // submittedMap: { [comparison]: true }
-  const [submittedMap, setSubmittedMap] = useState({});
-
+  // keep per-translation rating status (re-used to colour cards)
   const [ratedMap, setRatedMap] = useState({});
   const [scoreMap, setScoreMap] = useState({});
 
@@ -37,7 +33,7 @@ export default function Home() {
         const rows = await res.json();
         const arr = Array.isArray(rows) ? rows : [];
         setPairs(arr);
-        await checkStatuses(arr); // fetch persisted choices from server
+        await checkStatuses(arr);
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load paired data.");
@@ -49,31 +45,9 @@ export default function Home() {
   async function checkStatuses(rows) {
     const ratedEntries = {};
     const scoreEntries = {};
-    const submitted = {};
-    const selEntries = {};
     const fetches = [];
 
     for (const p of rows) {
-      // preference status (server truth)
-      fetches.push(
-        fetch(
-          `/api/preferences/status?comparison=${encodeURIComponent(
-            p.comparison
-          )}&rater=${encodeURIComponent(rater)}`
-        )
-          .then((r) => (r.ok ? r.json() : { exists: false }))
-          .then((j) => {
-            if (j?.exists) {
-              submitted[p.comparison] = true;
-              if ([0, 1, 2].includes(Number(j.result))) {
-                selEntries[p.comparison] = Number(j.result);
-              }
-            }
-          })
-          .catch(() => {})
-      );
-
-      // rating status for green panels (unchanged)
       const handleRating = (key, modelUsed, modelId) =>
         fetch(
           `/api/ratings/status?modelUsed=${encodeURIComponent(
@@ -100,15 +74,13 @@ export default function Home() {
     }
 
     await Promise.all(fetches);
-
-    // apply server truth
     setRatedMap(ratedEntries);
     setScoreMap(scoreEntries);
-    setSubmittedMap((m) => ({ ...m, ...submitted }));
-    setSelected((m) => ({ ...m, ...selEntries }));
   }
 
   const viewPairs = useMemo(() => {
+    // we still keep this in case you ever randomise left/right in the future,
+    // but now we only care about the pair as a whole.
     return pairs.map((p) => {
       const flip = ((hash32(String(p.comparison)) & 1) === 1);
       const left = flip ? p.medgemma : p.chatgpt;
@@ -119,6 +91,8 @@ export default function Home() {
 
       return {
         comparison: p.comparison,
+        chatgpt: p.chatgpt,
+        medgemma: p.medgemma,
         left,
         right,
         leftModelUsed,
@@ -126,51 +100,6 @@ export default function Home() {
       };
     });
   }, [pairs]);
-
-  async function submitPref(vp) {
-    const comp = vp.comparison;
-    const resVal = selected[comp];
-    if (resVal === undefined) {
-      alert("Pick 1, 2, or Tie first.");
-      return;
-    }
-
-    try {
-      // Optimistic update so it STAYS green and the button shows Resubmit immediately
-      setSubmittedMap((m) => ({ ...m, [comp]: true }));
-      // (selected already contains the choice the user clicked)
-
-      const resp = await fetch("/api/preferences", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          comparison: comp,
-          set1Id: vp.left?.id || "",
-          set2Id: vp.right?.id || "",
-          result: resVal,
-          rater,
-        }),
-      });
-
-      if (!resp.ok) {
-        // revert optimistic submitted flag on failure
-        setSubmittedMap((m) => {
-          const { [comp]: _, ...rest } = m;
-          return rest;
-        });
-        const txt = await resp.text();
-        throw new Error(txt || "Failed to submit preference.");
-      }
-
-      // Reconcile with server so it persists across sessions
-      await checkStatuses(pairs);
-
-      alert("Preference submitted.");
-    } catch (e) {
-      console.error(e);
-      alert("Failed: " + (e.message || "Unknown"));
-    }
-  }
 
   return (
     <div className="max-w-7xl mx-auto py-6 space-y-4">
@@ -204,79 +133,59 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 font-semibold text-center sticky top-0 bg-gray-50 py-2">
-        <div>Set 1</div>
-        <div>Set 2</div>
-        <div>Preference</div>
-      </div>
-
       {err && <div className="text-sm text-red-700">{err}</div>}
 
-      {viewPairs.map((vp) => {
-        const comp = vp.comparison;
-        const sel = selected[comp];
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {viewPairs.map((vp) => {
+          const { comparison, chatgpt, medgemma } = vp;
 
-        const leftKey = vp.left?.id ? `${vp.leftModelUsed}:${vp.left.id}` : null;
-        const rightKey = vp.right?.id ? `${vp.rightModelUsed}:${vp.right.id}` : null;
+          const gemmaKey = chatgpt?.id ? `gemma:${chatgpt.id}` : null;
+          const medKey   = medgemma?.id ? `medgemma:${medgemma.id}` : null;
 
-        const leftRated = leftKey ? !!ratedMap[leftKey] : false;
-        const rightRated = rightKey ? !!ratedMap[rightKey] : false;
+          const gemmaRated = gemmaKey ? !!ratedMap[gemmaKey] : false;
+          const medRated   = medKey ? !!ratedMap[medKey]   : false;
+          const bothRated  = gemmaRated && medRated;
 
-        const leftScore = leftKey ? scoreMap[leftKey] : undefined;
-        const rightScore = rightKey ? scoreMap[rightKey] : undefined;
+          const datasetId =
+            chatgpt?.datasetid || medgemma?.datasetid || "";
 
-        return (
-          <div key={comp} className="grid grid-cols-3 gap-4 items-start">
-            <div>
-              {vp.left ? (
-                <PanelCard
-                  id={vp.left.id}
-                  datasetid={vp.left.datasetid}
-                  setLabel="set1"
-                  rated={leftRated}
-                  score={leftScore}
-                />
-              ) : (
-                <Blank label="No Set 1 item" />
-              )}
-            </div>
+          return (
+            <Link
+              key={comparison}
+              to={`/item/${encodeURIComponent(comparison)}`}
+              className="block"
+            >
+              <div
+                className={`border rounded p-4 transition ${
+                  bothRated ? "bg-green-100 border-green-400" : "bg-white hover:shadow"
+                }`}
+              >
+                <div className="text-xs text-gray-500">
+                  Case {comparison}
+                </div>
+                <div className="mt-2 text-sm">
+                  <b>Press for Data</b>
+                </div>
+                <div className="text-sm">
+                  <b>DatasetID:</b> {datasetId || "-"}
+                </div>
 
-            <div>
-              {vp.right ? (
-                <PanelCard
-                  id={vp.right.id}
-                  datasetid={vp.right.datasetid}
-                  setLabel="set2"
-                  rated={rightRated}
-                  score={rightScore}
-                />
-              ) : (
-                <Blank label="No Set 2 item" />
-              )}
-            </div>
+                <div className="mt-1 text-xs text-gray-600">
+                  {gemmaRated || medRated
+                    ? `Rated: ${Number(gemmaRated) + Number(medRated)}/2`
+                    : "Not rated yet"}
+                </div>
 
-            <div className="flex items-center justify-center">
-              <PreferenceBox
-                submitted={!!submittedMap[comp]}
-                selected={sel === 0 ? "tie" : sel === 1 ? 1 : sel === 2 ? 2 : undefined}
-                setSelected={(val) => {
-                  const normalized = val === "tie" ? 0 : val;
-                  setSelected((m) => ({ ...m, [comp]: normalized }));
-                }}
-                onSubmit={() => submitPref(vp)}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function Blank({ label }) {
-  return (
-    <div className="border rounded p-4 bg-white text-sm text-gray-500">
-      {label}
+                {bothRated && (
+                  <div className="mt-1 text-xs font-semibold text-green-700">
+                    ✓ Both translations rated
+                  </div>
+                )}
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
