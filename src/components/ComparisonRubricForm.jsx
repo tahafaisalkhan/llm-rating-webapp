@@ -1,27 +1,14 @@
 // src/components/ComparisonRubricForm.jsx
 import { useEffect, useMemo, useState } from "react";
 
-/**
- * Tweak this to change how tall the whole rubric area is.
- * Examples:
- *  - "max-h-[12rem]"
- *  - "max-h-[14rem]"
- *  - "max-h-[18rem]"
- */
-const AXIS_SCROLL_MAX_H_CLASS = "max-h-[12rem]";
+const AXIS_SCROLL_MAX_H_CLASS = "max-h-[12rem]"; // easy height tweak
 
-/**
- * Props:
- *  - rater: string
- *  - comparison: string | number
- *  - datasetId: string
- */
 export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   const [axes, setAxes] = useState(
     () =>
       Array.from({ length: 8 }).map(() => ({
-        winner: null, // 0 = tie, 1, 2
-        strength: 3, // 1–5 when winner is 1 or 2
+        winner: null,
+        strength: 3,
       }))
   );
   const [comments, setComments] = useState("");
@@ -43,7 +30,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     []
   );
 
-  // Prefill if saved
+  // Prefill saved data
   useEffect(() => {
     (async () => {
       try {
@@ -228,14 +215,13 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-[13px] font-medium">{ax.label}</div>
-                  <div className="text-[11px] text-gray-500 mt-0.5">
+                  <div className="text-[11px] text-gray-500 mt-0.5 font-nastaliq">
                     {needsStrength
-                      ? "Winner + 1–5 strength."
-                      : "Tie selected – strength not needed."}
+                      ? "منتخب کردہ ترجمہ اور اس کی شدت منتخب کریں۔"
+                      : "ٹائی منتخب کی گئی ہے – شدت کی ضرورت نہیں۔"}
                   </div>
                 </div>
 
-                {/* Winner buttons + Likert side by side */}
                 <div className="flex items-center gap-2">
                   <WinnerButtons idx={idx} winner={winner} />
                   <Likert
@@ -250,12 +236,12 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
         })}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm">Extra Comments</div>
+      <div className="flex items-center justify-between gap-3 font-nastaliq">
+        <div className="text-sm">اضافی تبصرے</div>
         <input
           type="text"
-          placeholder="(optional) brief note"
-          className="border rounded px-2 py-1 text-xs w-64"
+          placeholder="(اختیاری) مختصر نوٹ"
+          className="border rounded px-2 py-1 text-xs w-64 font-nastaliq"
           value={comments}
           onChange={(e) => setComments(e.target.value)}
         />
