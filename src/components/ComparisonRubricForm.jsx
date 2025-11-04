@@ -31,7 +31,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     []
   );
 
-  // Prefill if saved
+  // Prefill saved data
   useEffect(() => {
     (async () => {
       try {
@@ -99,27 +99,19 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     });
   }, [axes]);
 
+  const isAxisComplete = (a) => {
+    if (!a.winner && a.winner !== 0) return false;
+    if (a.winner === 1 || a.winner === 2) return a.strength;
+    if (a.winner === 0) return !!a.tieQuality;
+    return false;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setErr("");
 
     try {
-      for (let i = 0; i < 8; i++) {
-        const a = axes[i];
-        const axisNum = i + 1;
-        if (a.winner === null)
-          throw new Error(
-            `Please choose Translation 1 / Translation 2 / Tie for axis ${axisNum}.`
-          );
-        if ((a.winner === 1 || a.winner === 2) && !a.strength)
-          throw new Error(`Please choose strength for axis ${axisNum}.`);
-        if (a.winner === 0 && !a.tieQuality)
-          throw new Error(
-            `For axis ${axisNum}, when Tie is selected, choose: both bad / both good / both excellent.`
-          );
-      }
-
       const axesPayload = {};
       axes.forEach((a, i) => {
         axesPayload[`axis${i + 1}`] = {
@@ -179,7 +171,6 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
       "Strong",
       "Very Strong",
     ];
-
     return (
       <div className="flex items-center gap-2 text-[11px] ml-2">
         {labels.map((label, i) => {
@@ -234,7 +225,6 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
         </span>
       </div>
 
-      {/* All axes: height controlled by AXIS_SCROLL_MAX_H_CLASS */}
       <div
         className={[
           "space-y-2 overflow-y-auto pr-1",
@@ -248,11 +238,17 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
           const tieQuality = a?.tieQuality ?? null;
           const needsStrength = winner === 1 || winner === 2;
           const isTie = winner === 0;
+          const done = isAxisComplete(a);
 
           return (
             <div
               key={ax.label}
-              className="border rounded-lg px-3 py-2 bg-gray-50"
+              className={[
+                "border rounded-lg px-3 py-2 transition-colors",
+                done
+                  ? "bg-green-50 border-green-400"
+                  : "bg-gray-50 border-gray-200",
+              ].join(" ")}
             >
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 {/* LEFT: label text */}
