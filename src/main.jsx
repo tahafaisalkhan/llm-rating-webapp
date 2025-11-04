@@ -19,6 +19,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+
         <Route
           path="/"
           element={
@@ -26,15 +27,19 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Home />
             </RequireAuth>
           }
-        />i
+        />
+
+        {/* NEW route for the case view */}
         <Route
-          path="/item/:id/:set"
+          path="/case/:comparisonId"
           element={
             <RequireAuth>
               <Detail />
             </RequireAuth>
           }
         />
+
+        {/* Old rubric page still available */}
         <Route
           path="/rubric"
           element={

@@ -1,11 +1,10 @@
-// src/pages/Detail.jsx
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RubricForm from "../components/RubricForm";
 import { getRater } from "../utils/auth";
 
 export default function Detail() {
-  const { comparisonId } = useParams(); // comparison id
+  const { comparisonId } = useParams(); // 👈 from /case/:comparisonId
   const navigate = useNavigate();
 
   const [cg, setCg] = useState(null); // Gemma row
@@ -44,7 +43,7 @@ export default function Detail() {
 
         const [cgAll, mgAll] = await Promise.all([cgRes.json(), mgRes.json()]);
 
-        // Find rows for this comparison
+        // rows for this comparison
         const cgRow =
           cgAll.find(
             (r) => String(r.comparison) === String(comparisonId)
@@ -57,12 +56,10 @@ export default function Detail() {
         setCg(cgRow);
         setMg(mgRow);
 
-        // Fetch rating status for each translation
+        // rating status
         if (cgRow) {
           const resG = await fetch(
-            `/api/ratings/status?modelUsed=${encodeURIComponent(
-              "gemma"
-            )}&modelId=${encodeURIComponent(
+            `/api/ratings/status?modelUsed=gemma&modelId=${encodeURIComponent(
               cgRow.id
             )}&rater=${encodeURIComponent(rater)}`
           );
@@ -73,9 +70,7 @@ export default function Detail() {
 
         if (mgRow) {
           const resM = await fetch(
-            `/api/ratings/status?modelUsed=${encodeURIComponent(
-              "medgemma"
-            )}&modelId=${encodeURIComponent(
+            `/api/ratings/status?modelUsed=medgemma&modelId=${encodeURIComponent(
               mgRow.id
             )}&rater=${encodeURIComponent(rater)}`
           );
@@ -112,7 +107,7 @@ export default function Detail() {
             ← Back
           </button>
           <div className="text-xs text-gray-500">
-            Case #{comparisonId} &middot; DatasetID:{" "}
+            Case #{comparisonId} · DatasetID:{" "}
             <span className="font-semibold">{datasetId || "-"}</span>
           </div>
         </div>
@@ -256,7 +251,7 @@ export default function Detail() {
         </div>
       </div>
 
-      {/* Rubrics for both models */}
+      {/* Rubrics */}
       <div className="border-t bg-white p-4 shadow-md">
         <div className="mb-2 font-semibold text-sm">
           Rate each Urdu translation separately:
