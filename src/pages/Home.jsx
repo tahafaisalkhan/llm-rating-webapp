@@ -79,8 +79,6 @@ export default function Home() {
   }
 
   const viewPairs = useMemo(() => {
-    // we still keep this in case you ever randomise left/right in the future,
-    // but now we only care about the pair as a whole.
     return pairs.map((p) => {
       const flip = ((hash32(String(p.comparison)) & 1) === 1);
       const left = flip ? p.medgemma : p.chatgpt;
@@ -161,7 +159,8 @@ export default function Home() {
                 }`}
               >
                 <div className="text-xs text-gray-500">
-                  Case {comparison}
+                  {/* changed this line only */}
+                  Data point {comparison}
                 </div>
                 <div className="mt-2 text-sm">
                   <b>Press for Data</b>
