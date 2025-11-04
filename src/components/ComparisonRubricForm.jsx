@@ -20,8 +20,9 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   const [axes, setAxes] = useState(
     () =>
       Array.from({ length: 8 }).map(() => ({
-        winner: null, // 0 = tie, 1, 2
-        strength: 3, // 1–5 when winner is 1 or 2
+        winner: null,      // 0 = tie, 1, 2
+        strength: 3,       // 1–5 when winner is 1 or 2
+        tieQuality: null,  // "bad" | "good" | "excellent" when winner === 0
       }))
   );
   const [comments, setComments] = useState("");
@@ -70,6 +71,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
               typeof a.strength === "number" && a.strength >= 1 && a.strength <= 5
                 ? a.strength
                 : 3,
+            tieQuality: a.tieQuality ?? null,
           });
         }
         setAxes(next);
@@ -84,10 +86,15 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   const setAxisWinner = (idx, winner) => {
     setAxes((old) => {
       const copy = old.slice();
-      const current = copy[idx] || { winner: null, strength: 3 };
+      const current = copy[idx] || {
+        winner: null,
+        strength: 3,
+        tieQuality: null,
+      };
       copy[idx] = {
         winner,
         strength: winner === 0 ? null : current.strength ?? 3,
+        tieQuality: winner === 0 ? current.tieQuality ?? null : null,
       };
       return copy;
     });
@@ -96,11 +103,43 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   const setAxisStrength = (idx, strength) => {
     setAxes((old) => {
       const copy = old.slice();
-      const current = copy[idx] || { winner: null, strength: 3 };
+      const current = copy[idx] || {
+        winner: null,
+        strength: 3,
+        tieQuality: null,
+      };
       copy[idx] = { ...current, strength };
       return copy;
     });
   };
+
+  const setAxisTieQuality = (idx, tieQuality) => {
+    setAxes((old) => {
+      const copy = old.slice();
+      const current = copy[idx] || {
+        winner: null,
+        strength: 3,
+        tieQuality: null,
+      };
+      copy[idx] = { ...current, tieQuality };
+      return copy;
+    });
+  };
+
+  // Are all 8 axes fully completed?
+  const allComplete = useMemo(() => {
+    for (let i = 0; i < 8; i++) {
+      const a = axes[i];
+      if (!a || a.winner === null) return false;
+      if (a.winner === 1 || a.winner === 2) {
+        if (!a.strength || a.strength < 1 || a.strength > 5) return false;
+      }
+      if (a.winner === 0) {
+        if (!a.tieQuality) return false;
+      }
+    }
+    return true;
+  }, [axes]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -108,21 +147,32 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     setErr("");
 
     try {
+      // Validation (with clear error messages)
       for (let i = 0; i < 8; i++) {
         const a = axes[i];
-        if (a.winner === null) {
-          throw new Error(`Please choose 1 / 2 / Tie for axis ${i + 1}.`);
+        const axisNum = i + 1;
+        if (!a || a.winner === null) {
+          throw new Error(`Please choose Translation 1 / Translation 2 / Tie for axis ${axisNum}.`);
         }
-        if (a.winner !== 0 && (a.strength < 1 || a.strength > 5)) {
-          throw new Error(`Please choose strength 1–5 for axis ${i + 1}.`);
+        if (a.winner === 1 || a.winner === 2) {
+          if (!a.strength || a.strength < 1 || a.strength > 5) {
+            throw new Error(`Please choose strength 1–5 for axis ${axisNum}.`);
+          }
+        }
+        if (a.winner === 0 && !a.tieQuality) {
+          throw new Error(
+            `For axis ${axisNum}, when Tie is selected, choose: both bad / both good / both excellent.`
+          );
         }
       }
 
       const axesPayload = {};
       for (let i = 0; i < 8; i++) {
+        const a = axes[i];
         axesPayload[`axis${i + 1}`] = {
-          winner: axes[i].winner,
-          strength: axes[i].winner === 0 ? null : axes[i].strength,
+          winner: a.winner,
+          strength: a.winner === 0 ? null : a.strength,
+          tieQuality: a.winner === 0 ? a.tieQuality : null,
         };
       }
 
@@ -196,6 +246,30 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
     </div>
   );
 
+  const TieQuality = ({ idx, tieQuality }) => (
+    <div className="flex flex-wrap gap-1 text-[10px] mt-1">
+      {[
+        { val: "bad", label: "both translations are bad" },
+        { val: "good", label: "both translations are good" },
+        { val: "excellent", label: "both translations are excellent" },
+      ].map((opt) => (
+        <button
+          key={opt.val}
+          type="button"
+          onClick={() => setAxisTieQuality(idx, opt.val)}
+          className={[
+            "px-2 py-0.5 rounded border",
+            tieQuality === opt.val
+              ? "bg-gray-800 text-white border-gray-800"
+              : "bg-white text-gray-800 hover:bg-gray-100",
+          ].join(" ")}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
       <div className="font-semibold text-sm">
@@ -217,7 +291,9 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
           const a = axes[idx];
           const winner = a?.winner;
           const strength = a?.strength ?? 3;
+          const tieQuality = a?.tieQuality ?? null;
           const needsStrength = winner === 1 || winner === 2;
+          const isTie = winner === 0;
 
           return (
             <div
@@ -231,15 +307,20 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
                   <div className="text-[11px] text-gray-500 mt-0.5">
                     {needsStrength
                       ? "Winner chosen – now rate how strong the preference is (1–5)."
+                      : isTie
+                      ? "Tie selected – specify if both translations are bad, good, or excellent."
                       : "Pick Translation 1, Translation 2, or Tie."}
                   </div>
                 </div>
 
-                {/* Buttons & Likert LEFT-aligned under the label */}
-                <div className="flex items-center gap-3">
-                  <WinnerButtons idx={idx} winner={winner} />
-                  {needsStrength && (
-                    <Likert idx={idx} strength={strength} />
+                {/* Buttons & Likert / tie options under label, left-aligned */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-3">
+                    <WinnerButtons idx={idx} winner={winner} />
+                    {needsStrength && <Likert idx={idx} strength={strength} />}
+                  </div>
+                  {isTie && (
+                    <TieQuality idx={idx} tieQuality={tieQuality} />
                   )}
                 </div>
               </div>
@@ -264,8 +345,12 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          className="bg-black text-white rounded px-3 py-1.5 font-semibold text-sm disabled:opacity-60"
-          disabled={saving}
+          className={`rounded px-3 py-1.5 font-semibold text-sm ${
+            saving || !allComplete
+              ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+              : "bg-black text-white"
+          }`}
+          disabled={saving || !allComplete}
         >
           {saving ? "Submitting…" : savedOnce ? "Resubmit" : "Submit"}
         </button>
