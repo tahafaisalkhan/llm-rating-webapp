@@ -196,6 +196,54 @@ app.get("/api/preferences/status", async (req, res) => {
   }
 });
 
+/** ----------------- NOTE CLICK COUNTERS ----------------- */
+/**
+ * POST /api/note-click
+ * body: { rater, comparison, which }
+ *   which ∈ "english" | "urdu1" | "urdu2"
+ */
+app.post("/api/note-click", async (req, res) => {
+  try {
+    const { rater, comparison, which } = req.body || {};
+    if (
+      !rater ||
+      !comparison ||
+      !["english", "urdu1", "urdu2"].includes(which)
+    ) {
+      return res.status(400).json({ error: "Missing or invalid fields" });
+    }
+
+    const incMap = {
+      english: { englishNote: 1 },
+      urdu1: { urdu1Note: 1 },
+      urdu2: { urdu2Note: 1 },
+    };
+
+    const doc = await NoteCounter.findOneAndUpdate(
+      { rater, comparison: String(comparison) },
+      { $inc: incMap[which] },
+      {
+        upsert: true,
+        new: true,
+        lean: true,
+      }
+    );
+
+    return res.json({
+      ok: true,
+      counts: {
+        englishNote: doc.englishNote || 0,
+        urdu1Note: doc.urdu1Note || 0,
+        urdu2Note: doc.urdu2Note || 0,
+      },
+    });
+  } catch (e) {
+    console.error("POST /api/note-click error:", e);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 /** ---------- Default route redirect to /login ---------- */
 app.get("/", (_req, res) => {
   res.redirect("/login");

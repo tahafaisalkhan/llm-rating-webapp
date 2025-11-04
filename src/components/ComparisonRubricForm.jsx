@@ -19,14 +19,14 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
 
   const AXES_META = useMemo(
     () => [
-      { label: "1 Medical Accuracy" },
-      { label: "2 Clinical Safety for Handover Utility" },
-      { label: "3 Clinical Reasoning" },
-      { label: "4 Linguistic Correctness (Urdu/English)" },
-      { label: "5 Precision in Medical Terminology" },
-      { label: "6 Structure & Flow" },
-      { label: "7 Patient Interaction & Communication" },
-      { label: "8 Alignment to Source (Traceability)" },
+      { label: "1. Medical Accuracy" },
+      { label: "2. Clinical Safety for Handover Utility" },
+      { label: "3. Clinical Reasoning" },
+      { label: "4. Linguistic Correctness (Urdu/English)" },
+      { label: "5. Precision in Medical Terminology" },
+      { label: "6. Structure & Flow" },
+      { label: "7. Patient Interaction & Communication" },
+      { label: "8. Alignment to Source (Traceability)" },
     ],
     []
   );

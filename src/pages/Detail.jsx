@@ -51,6 +51,23 @@ export default function Detail() {
     })();
   }, [comparisonId]);
 
+  // ⬇️ helper to log note clicks
+  async function recordNoteClick(which) {
+    try {
+      await fetch("/api/note-click", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rater,
+          comparison: comparisonId,
+          which, // "english" | "urdu1" | "urdu2"
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to record note click", e);
+    }
+  }
+
   if (!row) {
     return (
       <div className="h-screen flex flex-col">
@@ -118,9 +135,15 @@ export default function Detail() {
                 </div>
               </div>
               <button
-                onClick={() =>
-                  setEngTab(engTab === "dialogue" ? "note" : "dialogue")
-                }
+                onClick={() => {
+                  if (engTab === "dialogue") {
+                    // going TO note → count it
+                    recordNoteClick("english");
+                    setEngTab("note");
+                  } else {
+                    setEngTab("dialogue");
+                  }
+                }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
                   engTab === "dialogue"
                     ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -150,15 +173,22 @@ export default function Detail() {
           >
             <div className="p-3 border-b flex items-center justify-between" dir="ltr">
               <div>
-                <div className="text-xs text-gray-500">Urdu (Gemma Translation)</div>
+                <div className="text-xs text-gray-500">
+                  Urdu (Gemma Translation)
+                </div>
                 <div className="mt-1 font-semibold text-sm">
                   {urd1Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
                 </div>
               </div>
               <button
-                onClick={() =>
-                  setUrd1Tab(urd1Tab === "dialogue" ? "note" : "dialogue")
-                }
+                onClick={() => {
+                  if (urd1Tab === "dialogue") {
+                    recordNoteClick("urdu1");
+                    setUrd1Tab("note");
+                  } else {
+                    setUrd1Tab("dialogue");
+                  }
+                }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
                   urd1Tab === "dialogue"
                     ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -188,15 +218,22 @@ export default function Detail() {
           >
             <div className="p-3 border-b flex items-center justify-between" dir="ltr">
               <div>
-                <div className="text-xs text-gray-500">Urdu (MedGemma Translation)</div>
+                <div className="text-xs text-gray-500">
+                  Urdu (MedGemma Translation)
+                </div>
                 <div className="mt-1 font-semibold text-sm">
                   {urd2Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
                 </div>
               </div>
               <button
-                onClick={() =>
-                  setUrd2Tab(urd2Tab === "dialogue" ? "note" : "dialogue")
-                }
+                onClick={() => {
+                  if (urd2Tab === "dialogue") {
+                    recordNoteClick("urdu2");
+                    setUrd2Tab("note");
+                  } else {
+                    setUrd2Tab("dialogue");
+                  }
+                }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
                   urd2Tab === "dialogue"
                     ? "bg-blue-600 text-white hover:bg-blue-700"
