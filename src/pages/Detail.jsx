@@ -26,6 +26,11 @@ export default function Detail() {
   const [row, setRow] = useState(null);
   const [err, setErr] = useState("");
 
+  // ⬇️ move these hooks up here so they are ALWAYS called
+  const [engTab, setEngTab] = useState("dialogue");
+  const [urd1Tab, setUrd1Tab] = useState("dialogue");
+  const [urd2Tab, setUrd2Tab] = useState("dialogue");
+
   useEffect(() => {
     (async () => {
       try {
@@ -46,6 +51,8 @@ export default function Detail() {
     })();
   }, [comparisonId]);
 
+  // ✅ it’s fine to early-return based on state/props,
+  // as long as all hooks are defined above.
   if (!row) {
     return (
       <div className="h-screen flex flex-col">
@@ -56,9 +63,7 @@ export default function Detail() {
           >
             ← Back
           </button>
-          <div className="text-xs text-gray-500">
-            Case #{comparisonId}
-          </div>
+          <div className="text-xs text-gray-500">Case #{comparisonId}</div>
         </div>
         <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
           {err ? err : "Loading…"}
@@ -79,10 +84,6 @@ export default function Detail() {
   const flip = (hash32(String(row.comparison)) & 1) === 1;
   const urdu1 = flip ? row.medgemma : row.chatgpt;
   const urdu2 = flip ? row.chatgpt : row.medgemma;
-
-  const [engTab, setEngTab] = useState("dialogue");
-  const [urd1Tab, setUrd1Tab] = useState("dialogue");
-  const [urd2Tab, setUrd2Tab] = useState("dialogue");
 
   const urdu1Dialogue = urdu1?.chatgptDial || urdu1?.medDial || "";
   const urdu1Note = urdu1?.chatgptNote || urdu1?.medNote || "";
@@ -154,7 +155,10 @@ export default function Detail() {
             className="border rounded-2xl bg-white flex flex-col overflow-hidden"
             dir="rtl"
           >
-            <div className="p-4 border-b flex items-center justify-between" dir="ltr">
+            <div
+              className="p-4 border-b flex items-center justify-between"
+              dir="ltr"
+            >
               <div>
                 <div className="text-xs text-gray-500">Urdu 1</div>
                 <div className="mt-1 font-semibold">
@@ -199,7 +203,10 @@ export default function Detail() {
             className="border rounded-2xl bg-white flex flex-col overflow-hidden"
             dir="rtl"
           >
-            <div className="p-4 border-b flex items-center justify-between" dir="ltr">
+            <div
+              className="p-4 border-b flex items-center justify-between"
+              dir="ltr"
+            >
               <div>
                 <div className="text-xs text-gray-500">Urdu 2</div>
                 <div className="mt-1 font-semibold">
