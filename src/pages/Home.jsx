@@ -1,3 +1,4 @@
+// src/pages/Home.jsx
 import { useEffect, useState, useMemo } from "react";
 import PanelCard from "../components/PanelCard";
 import { getRater, clearRater } from "../utils/auth";
@@ -7,7 +8,9 @@ export default function Home() {
 
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
+  const [completedMap, setCompletedMap] = useState({}); // comparison -> true
 
+  // Load paired cases
   useEffect(() => {
     (async () => {
       try {
@@ -22,6 +25,36 @@ export default function Home() {
       }
     })();
   }, [rater]);
+
+  // After pairs load, check which cases are completed for this rater
+  useEffect(() => {
+    if (!rater || pairs.length === 0) return;
+
+    (async () => {
+      try {
+        const next = {};
+        const fetches = pairs.map((p) =>
+          fetch(
+            `/api/comparison-ratings/get?comparison=${encodeURIComponent(
+              p.comparison
+            )}&rater=${encodeURIComponent(rater)}`
+          )
+            .then((res) => (res.ok ? res.json() : { exists: false }))
+            .then((j) => {
+              if (j?.exists) {
+                next[p.comparison] = true;
+              }
+            })
+            .catch(() => {})
+        );
+
+        await Promise.all(fetches);
+        setCompletedMap((prev) => ({ ...prev, ...next }));
+      } catch (e) {
+        console.error("Failed to fetch completion statuses", e);
+      }
+    })();
+  }, [pairs, rater]);
 
   // One item per comparison, only need comparison + datasetid
   const viewCases = useMemo(() => {
@@ -72,6 +105,7 @@ export default function Home() {
             key={c.comparison}
             comparison={c.comparison}
             datasetid={c.datasetid}
+            completed={!!completedMap[c.comparison]}
           />
         ))}
 
