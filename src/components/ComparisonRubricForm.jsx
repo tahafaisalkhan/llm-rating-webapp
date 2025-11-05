@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 
 const AXIS_SCROLL_MAX_H_CLASS = "max-h-[12rem]";
 
-export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
+export default function ComparisonRubricForm({
+  rater,
+  comparison,
+  datasetId,
+  startedAtMs, // 👈 NEW: timer start passed from Detail.jsx
+}) {
   const [axes, setAxes] = useState(
     () =>
       Array.from({ length: 8 }).map(() => ({
@@ -55,7 +60,9 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
                 ? a.winner
                 : null,
             strength:
-              typeof a.strength === "number" && a.strength >= 1 && a.strength <= 5
+              typeof a.strength === "number" &&
+              a.strength >= 1 &&
+              a.strength <= 5
                 ? a.strength
                 : 3,
             tieQuality: a.tieQuality ?? null,
@@ -121,7 +128,21 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
         };
       });
 
-      const body = { rater, comparison, datasetId, axes: axesPayload, comments };
+      // 👇 compute duration from startedAtMs, if valid
+      let durationSeconds = null;
+      if (typeof startedAtMs === "number" && startedAtMs > 0) {
+        durationSeconds = (Date.now() - startedAtMs) / 1000;
+      }
+
+      const body = {
+        rater,
+        comparison,
+        datasetId,
+        axes: axesPayload,
+        comments,
+        durationSeconds, // 👈 send to backend
+      };
+
       const res = await fetch("/api/comparison-ratings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -164,13 +185,7 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
   );
 
   const Likert = ({ idx, strength }) => {
-    const labels = [
-      "Very Weak",
-      "Weak",
-      "Moderate",
-      "Strong",
-      "Very Strong",
-    ];
+    const labels = ["Very Weak", "Weak", "Moderate", "Strong", "Very Strong"];
     return (
       <div className="flex items-center gap-2 text-[11px] ml-2">
         {labels.map((label, i) => {
@@ -226,10 +241,9 @@ export default function ComparisonRubricForm({ rater, comparison, datasetId }) {
       </div>
 
       <div
-        className={[
-          "space-y-2 overflow-y-auto pr-1",
-          AXIS_SCROLL_MAX_H_CLASS,
-        ].join(" ")}
+        className={["space-y-2 overflow-y-auto pr-1", AXIS_SCROLL_MAX_H_CLASS].join(
+          " "
+        )}
       >
         {AXES_META.map((ax, idx) => {
           const a = axes[idx];
