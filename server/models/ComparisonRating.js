@@ -19,6 +19,11 @@ const ComparisonRatingSchema = new mongoose.Schema(
     comparison: { type: String, required: true },
     datasetId: { type: String, default: "" },
 
+    // Which concrete outputs were shown as Urdu 1 / Urdu 2 in the UI
+    // e.g. "c_aci_001", "g_aci_001"
+    urdu1: { type: String, default: "" },
+    urdu2: { type: String, default: "" },
+
     axes: {
       axis1: { type: AxisSchema, required: true },
       axis2: { type: AxisSchema, required: true },
@@ -35,14 +40,17 @@ const ComparisonRatingSchema = new mongoose.Schema(
     // time spent on this case (seconds, optional)
     durationSeconds: { type: Number, default: null },
 
-    // NEW: relative overall grading (Translation 1 vs 2 vs Tie)
+    // Relative overall grading (Translation 1 vs 2 vs Tie)
     relativeOverall: {
-      winner: { type: Number, enum: [0, 1, 2], default: null }, // 0 tie, 1 T1, 2 T2
-      strength: { type: Number, min: 1, max: 5, default: null }, // when winner is 1 or 2
-      tieQuality: { type: String, default: null }, // when winner = 0
+      // 0 tie, 1 T1, 2 T2
+      winner: { type: Number, enum: [0, 1, 2], default: null },
+      // when winner is 1 or 2
+      strength: { type: Number, min: 1, max: 5, default: null },
+      // when winner = 0
+      tieQuality: { type: String, default: null },
     },
 
-    // NEW: absolute overall grading for each translation
+    // Absolute overall grading for each translation
     absoluteOverall: {
       translation1: { type: Number, min: 1, max: 5, default: null },
       translation2: { type: Number, min: 1, max: 5, default: null },

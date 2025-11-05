@@ -8,6 +8,8 @@ export default function ComparisonRubricForm({
   comparison,
   datasetId,
   startedAtMs, // timer start from Detail.jsx (can be undefined)
+  urdu1,
+  urdu2,
 }) {
   const [axes, setAxes] = useState(
     () =>
@@ -218,6 +220,8 @@ export default function ComparisonRubricForm({
           translation1: absoluteOverall.t1,
           translation2: absoluteOverall.t2,
         },
+        urdu1,
+        urdu2,
       };
 
       const res = await fetch("/api/comparison-ratings", {

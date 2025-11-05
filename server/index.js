@@ -40,6 +40,8 @@ app.post("/api/comparison-ratings", async (req, res) => {
       durationSeconds,
       relativeOverall,
       absoluteOverall,
+      urdu1,
+      urdu2,
     } = req.body || {};
 
     if (!rater || !comparison || !axes) {
@@ -94,9 +96,13 @@ app.post("/api/comparison-ratings", async (req, res) => {
         comments: comments || "",
         durationSeconds: dur,
 
-        // NEW: store relative + absolute overall (optional)
+        // store relative + absolute overall (optional)
         relativeOverall: relativeOverall || null,
         absoluteOverall: absoluteOverall || null,
+
+        // which concrete outputs were shown as Urdu 1 / Urdu 2
+        urdu1: urdu1 || "",
+        urdu2: urdu2 || "",
       },
       $setOnInsert: { createdAt: new Date() },
     };
@@ -130,9 +136,10 @@ app.get("/api/comparison-ratings/get", async (req, res) => {
       axes: doc.axes || null,
       comments: doc.comments || "",
       durationSeconds: doc.durationSeconds ?? null,
-      // NEW: send these back so the form can prefill
       relativeOverall: doc.relativeOverall || null,
       absoluteOverall: doc.absoluteOverall || null,
+      urdu1: doc.urdu1 || "",
+      urdu2: doc.urdu2 || "",
     });
   } catch (e) {
     console.error("GET /api/comparison-ratings/get error:", e);

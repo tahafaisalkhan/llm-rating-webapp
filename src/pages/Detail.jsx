@@ -26,7 +26,7 @@ export default function Detail() {
   const [row, setRow] = useState(null);
   const [err, setErr] = useState("");
 
-  // NEW: capture when this page was opened (once)
+  // capture when this page was opened (once)
   const [startedAtMs] = useState(() => Date.now());
 
   // tab state
@@ -34,7 +34,7 @@ export default function Detail() {
   const [urd1Tab, setUrd1Tab] = useState("dialogue");
   const [urd2Tab, setUrd2Tab] = useState("dialogue");
 
-  // 👇 NEW: helper to log "Go to Note" clicks
+  // helper to log "Go to Note" clicks
   async function logNoteClick(which) {
     try {
       await fetch("/api/note-counter/increment", {
@@ -105,6 +105,10 @@ export default function Detail() {
   const urdu1Note = urdu1?.chatgptNote || urdu1?.medNote || "";
   const urdu2Dialogue = urdu2?.chatgptDial || urdu2?.medDial || "";
   const urdu2Note = urdu2?.chatgptNote || urdu2?.medNote || "";
+
+  // concrete ids for each translation shown as Urdu 1 / Urdu 2
+  const urdu1Id = urdu1?.id || "";
+  const urdu2Id = urdu2?.id || "";
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -258,7 +262,9 @@ export default function Detail() {
             rater={rater}
             comparison={comparisonId}
             datasetId={datasetId}
-            startedAtMs={startedAtMs}   // timer still passed through
+            startedAtMs={startedAtMs}
+            urdu1={urdu1Id}
+            urdu2={urdu2Id}
           />
         </div>
       </div>
