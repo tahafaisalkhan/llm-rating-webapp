@@ -421,7 +421,7 @@ export default function ComparisonRubricForm({
                 : "bg-white text-gray-800 hover:bg-gray-100",
             ].join(" ")}
           >
-            1
+            Relative Grading
           </button>
           <button
             type="button"
@@ -433,7 +433,7 @@ export default function ComparisonRubricForm({
                 : "bg-white text-gray-800 hover:bg-gray-100",
             ].join(" ")}
           >
-            2
+            Absolute Grading
           </button>
         </div>
       </div>
