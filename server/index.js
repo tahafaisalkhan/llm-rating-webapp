@@ -5,7 +5,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 
 const ComparisonRating = require("./models/ComparisonRating");
-const NoteCounter = require("./models/NoteCounter"); // 👈 NEW
+const NoteCounter = require("./models/NoteCounter");
 
 const MONGO_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/clinical";
@@ -38,6 +38,8 @@ app.post("/api/comparison-ratings", async (req, res) => {
       axes,
       comments,
       durationSeconds,
+      relativeOverall,
+      absoluteOverall,
     } = req.body || {};
 
     if (!rater || !comparison || !axes) {
@@ -75,6 +77,7 @@ app.post("/api/comparison-ratings", async (req, res) => {
           error: `Axis ${ax} strength must be 1–5 when winner is 1 or 2`,
         });
       }
+      // tieQuality is optional when winner === 0; no extra validation needed
     }
 
     // sanitize duration (optional)
@@ -90,6 +93,10 @@ app.post("/api/comparison-ratings", async (req, res) => {
         axes,
         comments: comments || "",
         durationSeconds: dur,
+
+        // NEW: store relative + absolute overall (optional)
+        relativeOverall: relativeOverall || null,
+        absoluteOverall: absoluteOverall || null,
       },
       $setOnInsert: { createdAt: new Date() },
     };
@@ -123,6 +130,9 @@ app.get("/api/comparison-ratings/get", async (req, res) => {
       axes: doc.axes || null,
       comments: doc.comments || "",
       durationSeconds: doc.durationSeconds ?? null,
+      // NEW: send these back so the form can prefill
+      relativeOverall: doc.relativeOverall || null,
+      absoluteOverall: doc.absoluteOverall || null,
     });
   } catch (e) {
     console.error("GET /api/comparison-ratings/get error:", e);
@@ -135,7 +145,11 @@ app.get("/api/comparison-ratings/get", async (req, res) => {
 app.post("/api/note-counter/increment", async (req, res) => {
   try {
     const { rater, comparison, which } = req.body || {};
-    if (!rater || !comparison || !["english", "urdu1", "urdu2"].includes(which)) {
+    if (
+      !rater ||
+      !comparison ||
+      !["english", "urdu1", "urdu2"].includes(which)
+    ) {
       return res.status(400).json({ error: "Missing or invalid fields" });
     }
 

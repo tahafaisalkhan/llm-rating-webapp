@@ -7,6 +7,8 @@ const AxisSchema = new mongoose.Schema(
     winner: { type: Number, enum: [0, 1, 2], required: true },
     // 1–5 Likert strength, null if tie
     strength: { type: Number, min: 1, max: 5, default: null },
+    // when winner = 0 (tie), optional quality: "bad" | "good" | "excellent"
+    tieQuality: { type: String, default: null },
   },
   { _id: false }
 );
@@ -30,8 +32,21 @@ const ComparisonRatingSchema = new mongoose.Schema(
 
     comments: { type: String, default: "" },
 
-    // NEW: time spent on this case (seconds, optional)
+    // time spent on this case (seconds, optional)
     durationSeconds: { type: Number, default: null },
+
+    // NEW: relative overall grading (Translation 1 vs 2 vs Tie)
+    relativeOverall: {
+      winner: { type: Number, enum: [0, 1, 2], default: null }, // 0 tie, 1 T1, 2 T2
+      strength: { type: Number, min: 1, max: 5, default: null }, // when winner is 1 or 2
+      tieQuality: { type: String, default: null }, // when winner = 0
+    },
+
+    // NEW: absolute overall grading for each translation
+    absoluteOverall: {
+      translation1: { type: Number, min: 1, max: 5, default: null },
+      translation2: { type: Number, min: 1, max: 5, default: null },
+    },
   },
   { timestamps: true }
 );
