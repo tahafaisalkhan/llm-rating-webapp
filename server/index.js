@@ -180,6 +180,32 @@ app.post("/api/note-counter/increment", async (req, res) => {
   }
 });
 
+/** ----------------- NOTE COUNTER FETCH (GET current clicks) ----------------- */
+app.get("/api/note-counter/get", async (req, res) => {
+  try {
+    const { rater, comparison } = req.query;
+    if (!rater || !comparison) return res.json({ exists: false });
+
+    const doc = await NoteCounter.findOne({
+      rater,
+      comparison: String(comparison),
+    }).lean();
+
+    if (!doc) return res.json({ exists: false });
+
+    res.json({
+      exists: true,
+      englishNote: doc.englishNote || 0,
+      urdu1Note: doc.urdu1Note || 0,
+      urdu2Note: doc.urdu2Note || 0,
+    });
+  } catch (e) {
+    console.error("GET /api/note-counter/get error:", e);
+    res.json({ exists: false });
+  }
+});
+
+
 /** ---------- Default route redirect to /login ---------- */
 app.get("/", (_req, res) => {
   res.redirect("/login");

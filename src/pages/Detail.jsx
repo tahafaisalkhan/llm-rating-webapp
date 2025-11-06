@@ -25,8 +25,6 @@ export default function Detail() {
 
   const [row, setRow] = useState(null);
   const [err, setErr] = useState("");
-
-  // capture when this page was opened (once)
   const [startedAtMs] = useState(() => Date.now());
 
   // tab state
@@ -34,12 +32,11 @@ export default function Detail() {
   const [urd1Tab, setUrd1Tab] = useState("dialogue");
   const [urd2Tab, setUrd2Tab] = useState("dialogue");
 
-  // track whether each note has been opened at least once (for this visit)
+  // whether notes have been opened (persisted via DB)
   const [seenEnglishNote, setSeenEnglishNote] = useState(false);
   const [seenUrdu1Note, setSeenUrdu1Note] = useState(false);
   const [seenUrdu2Note, setSeenUrdu2Note] = useState(false);
 
-  // helper to log "Go to Note" clicks
   async function logNoteClick(which) {
     try {
       await fetch("/api/note-counter/increment", {
@@ -48,7 +45,7 @@ export default function Detail() {
         body: JSON.stringify({
           rater,
           comparison: comparisonId,
-          which, // "english" | "urdu1" | "urdu2"
+          which,
         }),
       });
     } catch (e) {
@@ -60,30 +57,38 @@ export default function Detail() {
     (async () => {
       try {
         setErr("");
+        // Load case data
         const res = await fetch("/data/paired.json");
         if (!res.ok) throw new Error("Missing /data/paired.json");
         const all = await res.json();
         const arr = Array.isArray(all) ? all : [];
-        const hit =
-          arr.find((p) => String(p.comparison) === String(comparisonId)) ||
-          null;
+        const hit = arr.find((p) => String(p.comparison) === String(comparisonId)) || null;
         if (!hit) throw new Error("Case not found");
         setRow(hit);
+
+        // ✅ Load existing note click counts
+        const q = new URLSearchParams({ rater, comparison: comparisonId });
+        const res2 = await fetch(`/api/note-counter/get?${q}`);
+        if (res2.ok) {
+          const j = await res2.json();
+          if (j.exists) {
+            setSeenEnglishNote((j.englishNote || 0) > 0);
+            setSeenUrdu1Note((j.urdu1Note || 0) > 0);
+            setSeenUrdu2Note((j.urdu2Note || 0) > 0);
+          }
+        }
       } catch (e) {
         console.error(e);
         setErr(e.message || "Failed to load case.");
       }
     })();
-  }, [comparisonId]);
+  }, [comparisonId, rater]);
 
   if (!row) {
     return (
       <div className="h-screen flex flex-col">
         <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-sm text-blue-600 hover:underline"
-          >
+          <button onClick={() => navigate(-1)} className="text-sm text-blue-600 hover:underline">
             ← Back
           </button>
           <div className="text-xs text-gray-500">Case #{comparisonId}</div>
@@ -96,7 +101,6 @@ export default function Detail() {
   }
 
   const datasetId = row.chatgpt?.datasetid || row.medgemma?.datasetid || "";
-
   const originalDialogue =
     row.chatgpt?.originalDialogue || row.medgemma?.originalDialogue || "";
   const originalNote =
@@ -111,19 +115,14 @@ export default function Detail() {
   const urdu2Dialogue = urdu2?.chatgptDial || urdu2?.medDial || "";
   const urdu2Note = urdu2?.chatgptNote || urdu2?.medNote || "";
 
-  // concrete ids for each translation shown as Urdu 1 / Urdu 2
   const urdu1Id = urdu1?.id || "";
   const urdu2Id = urdu2?.id || "";
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* Top bar */}
       <div className="px-4 py-2 border-b bg-gray-50 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-sm text-blue-600 hover:underline"
-          >
+          <button onClick={() => navigate(-1)} className="text-sm text-blue-600 hover:underline">
             ← Back
           </button>
           <div className="text-xs text-gray-500">
@@ -134,7 +133,6 @@ export default function Detail() {
         {err && <div className="text-sm text-red-700">{err}</div>}
       </div>
 
-      {/* Three panels in one row */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* English */}
@@ -165,29 +163,16 @@ export default function Detail() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-sm leading-relaxed">
-              {engTab === "dialogue" ? (
-                <pre className="whitespace-pre-wrap">
-                  {originalDialogue || "(No dialogue found)"}
-                </pre>
-              ) : (
-                <pre className="whitespace-pre-wrap">
-                  {originalNote || "(No note)"}
-                </pre>
-              )}
+              <pre className="whitespace-pre-wrap">
+                {engTab === "dialogue" ? originalDialogue : originalNote || "(No note)"}
+              </pre>
             </div>
           </div>
 
           {/* Urdu 1 */}
-          <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]"
-            dir="rtl"
-          >
+          <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
             <div className="p-3 border-b flex items-center justify-between" dir="ltr">
-              <div>
-                <div className="mt-1 font-semibold text-sm">
-                  {urd1Tab === "dialogue" ? "Urdu Dialogue 1" : "Urdu Note"}
-                </div>
-              </div>
+              <div><div className="mt-1 font-semibold text-sm">{urd1Tab === "dialogue" ? "Urdu Dialogue 1" : "Urdu Note"}</div></div>
               <button
                 onClick={() => {
                   const next = urd1Tab === "dialogue" ? "note" : "dialogue";
@@ -207,29 +192,16 @@ export default function Detail() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              {urd1Tab === "dialogue" ? (
-                <pre dir="rtl" className="whitespace-pre-wrap">
-                  {urdu1Dialogue || "(No Urdu)"}
-                </pre>
-              ) : (
-                <pre dir="rtl" className="whitespace-pre-wrap">
-                  {urdu1Note || "(No note)"}
-                </pre>
-              )}
+              <pre dir="rtl" className="whitespace-pre-wrap">
+                {urd1Tab === "dialogue" ? urdu1Dialogue : urdu1Note || "(No Urdu)"}
+              </pre>
             </div>
           </div>
 
           {/* Urdu 2 */}
-          <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]"
-            dir="rtl"
-          >
+          <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
             <div className="p-3 border-b flex items-center justify-between" dir="ltr">
-              <div>
-                <div className="mt-1 font-semibold text-sm">
-                  {urd2Tab === "dialogue" ? "Urdu Dialogue 2" : "Urdu Note"}
-                </div>
-              </div>
+              <div><div className="mt-1 font-semibold text-sm">{urd2Tab === "dialogue" ? "Urdu Dialogue 2" : "Urdu Note"}</div></div>
               <button
                 onClick={() => {
                   const next = urd2Tab === "dialogue" ? "note" : "dialogue";
@@ -249,15 +221,9 @@ export default function Detail() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              {urd2Tab === "dialogue" ? (
-                <pre dir="rtl" className="whitespace-pre-wrap">
-                  {urdu2Dialogue || "(No Urdu)"}
-                </pre>
-              ) : (
-                <pre dir="rtl" className="whitespace-pre-wrap">
-                  {urdu2Note || "(No note)"}
-                </pre>
-              )}
+              <pre dir="rtl" className="whitespace-pre-wrap">
+                {urd2Tab === "dialogue" ? urdu2Dialogue : urdu2Note || "(No Urdu)"}
+              </pre>
             </div>
           </div>
         </div>
