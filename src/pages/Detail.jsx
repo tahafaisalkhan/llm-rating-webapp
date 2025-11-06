@@ -178,9 +178,8 @@ export default function Detail() {
           >
             <div className="p-3 border-b flex items-center justify-between" dir="ltr">
               <div>
-                <div className="text-xs text-gray-500">Urdu (Gemma Translation)</div>
                 <div className="mt-1 font-semibold text-sm">
-                  {urd1Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
+                  {urd1Tab === "dialogue" ? "Urdu Dialogue 1" : "Urdu Note"}
                 </div>
               </div>
               <button
@@ -220,9 +219,8 @@ export default function Detail() {
           >
             <div className="p-3 border-b flex items-center justify-between" dir="ltr">
               <div>
-                <div className="text-xs text-gray-500">Urdu (MedGemma Translation)</div>
                 <div className="mt-1 font-semibold text-sm">
-                  {urd2Tab === "dialogue" ? "Urdu Dialogue" : "Urdu Note"}
+                  {urd2Tab === "dialogue" ? "Urdu Dialogue 2" : "Urdu Note"}
                 </div>
               </div>
               <button
