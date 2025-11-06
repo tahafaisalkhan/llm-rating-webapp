@@ -10,6 +10,7 @@ export default function ComparisonRubricForm({
   startedAtMs, // timer start from Detail.jsx (can be undefined)
   urdu1,
   urdu2,
+  notesViewed, // { english: bool, urdu1: bool, urdu2: bool }
 }) {
   const [axes, setAxes] = useState(
     () =>
@@ -178,8 +179,13 @@ export default function ComparisonRubricForm({
     const axesDone = axes.every(isAxisComplete);
     const relDone = isRelativeComplete(relativeOverall);
     const absDone = isAbsoluteComplete(absoluteOverall);
-    return axesDone && relDone && absDone;
-  }, [axes, relativeOverall, absoluteOverall]);
+
+    const nv = notesViewed || {};
+    const notesSeen =
+      !!nv.english && !!nv.urdu1 && !!nv.urdu2;
+
+    return axesDone && relDone && absDone && notesSeen;
+  }, [axes, relativeOverall, absoluteOverall, notesViewed]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

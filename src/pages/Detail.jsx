@@ -34,6 +34,11 @@ export default function Detail() {
   const [urd1Tab, setUrd1Tab] = useState("dialogue");
   const [urd2Tab, setUrd2Tab] = useState("dialogue");
 
+  // track whether each note has been opened at least once (for this visit)
+  const [seenEnglishNote, setSeenEnglishNote] = useState(false);
+  const [seenUrdu1Note, setSeenUrdu1Note] = useState(false);
+  const [seenUrdu2Note, setSeenUrdu2Note] = useState(false);
+
   // helper to log "Go to Note" clicks
   async function logNoteClick(which) {
     try {
@@ -147,6 +152,7 @@ export default function Detail() {
                   setEngTab(next);
                   if (next === "note") {
                     logNoteClick("english");
+                    setSeenEnglishNote(true);
                   }
                 }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
@@ -188,6 +194,7 @@ export default function Detail() {
                   setUrd1Tab(next);
                   if (next === "note") {
                     logNoteClick("urdu1");
+                    setSeenUrdu1Note(true);
                   }
                 }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
@@ -229,6 +236,7 @@ export default function Detail() {
                   setUrd2Tab(next);
                   if (next === "note") {
                     logNoteClick("urdu2");
+                    setSeenUrdu2Note(true);
                   }
                 }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
@@ -263,6 +271,11 @@ export default function Detail() {
             startedAtMs={startedAtMs}
             urdu1={urdu1Id}
             urdu2={urdu2Id}
+            notesViewed={{
+              english: seenEnglishNote,
+              urdu1: seenUrdu1Note,
+              urdu2: seenUrdu2Note,
+            }}
           />
         </div>
       </div>
