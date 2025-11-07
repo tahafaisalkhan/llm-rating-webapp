@@ -60,7 +60,7 @@ export default function Home() {
     })();
   }, [pairs, rater]);
 
-  // One item per comparison, only need comparison + datasetid; sort by comparison number
+  // One item per comparison, sorted by comparison number
   const viewCases = useMemo(() => {
     return [...pairs]
       .sort((a, b) => Number(a.comparison) - Number(b.comparison))
@@ -72,29 +72,26 @@ export default function Home() {
 
   // Determine which cases are locked/unlocked for this rater
   const casesWithLock = useMemo(() => {
-    let previousCompleted = false;
-
-    return viewCases.map((c, idx) => {
+    return viewCases.map((c, idx, arr) => {
       const completed = !!completedMap[c.comparison];
 
-      // If admin has toggled unlock, no case is locked
+      // Admin override: unlock everything
       if (isAdmin && adminUnlocked) {
-        return {
-          ...c,
-          completed,
-          locked: false,
-        };
+        return { ...c, completed, locked: false };
       }
 
-      // Normal sequential logic:
-      // - Case 1 is always unlocked
-      // - Any completed case is always unlocked
-      // - Other cases unlock only when previousCompleted is true
-      const unlocked = idx === 0 || completed || previousCompleted;
-
-      if (completed) {
-        previousCompleted = true;
+      // Case 1: always unlocked
+      if (idx === 0) {
+        return { ...c, completed, locked: false };
       }
+
+      // For case i (>0), unlock if:
+      //   - this case is completed, OR
+      //   - the *previous* case is completed
+      const prev = arr[idx - 1];
+      const prevCompleted = !!completedMap[prev.comparison];
+
+      const unlocked = completed || prevCompleted;
 
       return {
         ...c,

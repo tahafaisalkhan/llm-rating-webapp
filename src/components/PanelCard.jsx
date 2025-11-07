@@ -12,9 +12,11 @@ export default function PanelCard({ comparison, datasetid, completed, locked }) 
   const href = `/case/${encodeURIComponent(comparison)}`;
 
   const cardClasses = [
-    "border rounded-xl p-4 bg-white transition relative",
-    completed ? "border-green-500 bg-green-50" : "border-gray-200",
-    locked ? "opacity-50 pointer-events-none" : "hover:shadow-md hover:-translate-y-[1px]",
+    "border rounded-xl p-4 transition relative",
+    completed ? "border-green-500 bg-green-100" : "border-gray-200 bg-white",
+    locked
+      ? "opacity-50 pointer-events-none"
+      : "hover:shadow-md hover:-translate-y-[1px]",
   ].join(" ");
 
   const content = (
@@ -31,7 +33,7 @@ export default function PanelCard({ comparison, datasetid, completed, locked }) 
 
       {/* Completed badge */}
       {completed && !locked && (
-        <div className="absolute top-2 right-2 flex items-center gap-1 text-xs text-green-700 bg-green-100/90 px-2 py-0.5 rounded-full border border-green-400">
+        <div className="absolute top-2 right-2 flex items-center gap-1 text-xs text-green-700 bg-green-200/90 px-2 py-0.5 rounded-full border border-green-500">
           <span role="img" aria-label="done">
             ✅
           </span>
