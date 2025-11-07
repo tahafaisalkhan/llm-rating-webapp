@@ -49,7 +49,7 @@ export default function Home() {
         );
 
         await Promise.all(fetches);
-        setCompletedMap((prev) => ({ ...prev, ...next }));
+        setCompletedMap(next); // fresh map per rater
       } catch (e) {
         console.error("Failed to fetch completion statuses", e);
       }
@@ -57,12 +57,42 @@ export default function Home() {
   }, [pairs, rater]);
 
   // One item per comparison, only need comparison + datasetid
+  // Ensure cases are in numeric order
   const viewCases = useMemo(() => {
-    return pairs.map((p) => ({
-      comparison: p.comparison,
-      datasetid: p.chatgpt?.datasetid || p.medgemma?.datasetid || "",
-    }));
+    return [...pairs]
+      .slice()
+      .sort((a, b) => Number(a.comparison) - Number(b.comparison))
+      .map((p) => ({
+        comparison: p.comparison,
+        datasetid: p.chatgpt?.datasetid || p.medgemma?.datasetid || "",
+      }));
   }, [pairs]);
+
+  // Determine which cases are locked/unlocked for this rater
+  const casesWithLock = useMemo(() => {
+    let previousCompleted = false;
+
+    return viewCases.map((c, idx) => {
+      const completed = !!completedMap[c.comparison];
+
+      // Unlock logic:
+      // - Case 1 (idx 0) is always unlocked
+      // - Any already-completed case is always unlocked
+      // - Otherwise, a case is unlocked only if the *previous* case is completed
+      const unlocked =
+        idx === 0 || completed || previousCompleted;
+
+      if (completed) {
+        previousCompleted = true;
+      }
+
+      return {
+        ...c,
+        completed,
+        locked: !unlocked,
+      };
+    });
+  }, [viewCases, completedMap]);
 
   return (
     <div className="max-w-5xl mx-auto py-6 space-y-4">
@@ -100,16 +130,17 @@ export default function Home() {
       {err && <div className="text-sm text-red-700">{err}</div>}
 
       <div className="mt-4 space-y-3">
-        {viewCases.map((c) => (
+        {casesWithLock.map((c) => (
           <PanelCard
             key={c.comparison}
             comparison={c.comparison}
             datasetid={c.datasetid}
-            completed={!!completedMap[c.comparison]}
+            completed={c.completed}
+            locked={c.locked}
           />
         ))}
 
-        {viewCases.length === 0 && !err && (
+        {casesWithLock.length === 0 && !err && (
           <div className="text-sm text-gray-500">No cases found.</div>
         )}
       </div>
