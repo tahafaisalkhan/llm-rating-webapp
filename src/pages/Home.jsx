@@ -5,10 +5,14 @@ import { getRater, clearRater } from "../utils/auth";
 
 export default function Home() {
   const rater = getRater();
+  const isAdmin = rater === "admin";
 
   const [pairs, setPairs] = useState([]);
   const [err, setErr] = useState("");
   const [completedMap, setCompletedMap] = useState({}); // comparison -> true
+
+  // admin override: when true, all cases are unlocked for admin
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
 
   // Load paired cases
   useEffect(() => {
@@ -49,18 +53,16 @@ export default function Home() {
         );
 
         await Promise.all(fetches);
-        setCompletedMap(next); // fresh map per rater
+        setCompletedMap(next);
       } catch (e) {
         console.error("Failed to fetch completion statuses", e);
       }
     })();
   }, [pairs, rater]);
 
-  // One item per comparison, only need comparison + datasetid
-  // Ensure cases are in numeric order
+  // One item per comparison, only need comparison + datasetid; sort by comparison number
   const viewCases = useMemo(() => {
     return [...pairs]
-      .slice()
       .sort((a, b) => Number(a.comparison) - Number(b.comparison))
       .map((p) => ({
         comparison: p.comparison,
@@ -75,12 +77,20 @@ export default function Home() {
     return viewCases.map((c, idx) => {
       const completed = !!completedMap[c.comparison];
 
-      // Unlock logic:
-      // - Case 1 (idx 0) is always unlocked
-      // - Any already-completed case is always unlocked
-      // - Otherwise, a case is unlocked only if the *previous* case is completed
-      const unlocked =
-        idx === 0 || completed || previousCompleted;
+      // If admin has toggled unlock, no case is locked
+      if (isAdmin && adminUnlocked) {
+        return {
+          ...c,
+          completed,
+          locked: false,
+        };
+      }
+
+      // Normal sequential logic:
+      // - Case 1 is always unlocked
+      // - Any completed case is always unlocked
+      // - Other cases unlock only when previousCompleted is true
+      const unlocked = idx === 0 || completed || previousCompleted;
 
       if (completed) {
         previousCompleted = true;
@@ -92,7 +102,7 @@ export default function Home() {
         locked: !unlocked,
       };
     });
-  }, [viewCases, completedMap]);
+  }, [viewCases, completedMap, isAdmin, adminUnlocked]);
 
   return (
     <div className="max-w-5xl mx-auto py-6 space-y-4">
@@ -112,6 +122,20 @@ export default function Home() {
         </h1>
 
         <div className="flex items-center gap-3">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setAdminUnlocked((v) => !v)}
+              className={`text-xs px-3 py-1 rounded border font-semibold ${
+                adminUnlocked
+                  ? "bg-green-600 text-white border-green-700"
+                  : "bg-white text-gray-800 hover:bg-gray-100 border-gray-300"
+              }`}
+            >
+              {adminUnlocked ? "Relock cases" : "Unlock all cases"}
+            </button>
+          )}
+
           <span className="text-sm text-gray-600">
             Signed in: <b>{rater}</b>
           </span>
