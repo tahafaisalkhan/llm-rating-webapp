@@ -192,7 +192,7 @@ export default function Detail() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              <pre dir="rtl" className="whitespace-pre-wrap">
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq">
                 {urd1Tab === "dialogue" ? urdu1Dialogue : urdu1Note || "(No Urdu)"}
               </pre>
             </div>
@@ -221,7 +221,7 @@ export default function Detail() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              <pre dir="rtl" className="whitespace-pre-wrap">
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq">
                 {urd2Tab === "dialogue" ? urdu2Dialogue : urdu2Note || "(No Urdu)"}
               </pre>
             </div>
