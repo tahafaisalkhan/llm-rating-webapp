@@ -1,13 +1,8 @@
 // src/pages/Detail.jsx
-import React, { startTransition, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { getRater } from "../utils/auth";
 import ComparisonRubricForm from "../components/ComparisonRubricForm";
-
-// Memoized heavy <pre> to avoid re-rendering big text blocks on checklist updates
-const PreBlock = React.memo(function PreBlock({ text, dir = "ltr", className = "" }) {
-  return <pre dir={dir} className={`whitespace-pre-wrap ${className}`}>{text}</pre>;
-});
 
 function hash32(str) {
   let h = 2166136261 >>> 0;
@@ -56,15 +51,12 @@ export default function Detail() {
   useEffect(() => {
     function handler(e) {
       const detail = e.detail || {};
-      // Mark as non-urgent so clicks stay snappy
-      startTransition(() => {
-        setChecklist({
-          allComplete: !!detail.allComplete,
-          totalMissing: Number(detail.totalMissing || 0),
-          missingRelative: detail.missingRelative || [],
-          missingAbsolute: detail.missingAbsolute || [],
-          missingOther: detail.missingOther || [],
-        });
+      setChecklist({
+        allComplete: !!detail.allComplete,
+        totalMissing: Number(detail.totalMissing || 0),
+        missingRelative: detail.missingRelative || [],
+        missingAbsolute: detail.missingAbsolute || [],
+        missingOther: detail.missingOther || [],
       });
     }
     window.addEventListener("rating-checklist", handler);
@@ -301,7 +293,11 @@ export default function Detail() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-sm leading-relaxed">
-              <PreBlock text={engTab === "dialogue" ? originalDialogue : (originalNote || "(No note)")} />
+              <pre className="whitespace-pre-wrap">
+                {engTab === "dialogue"
+                  ? originalDialogue
+                  : originalNote || "(No note)"}
+              </pre>
             </div>
           </div>
 
@@ -335,11 +331,11 @@ export default function Detail() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              <PreBlock
-                dir="rtl"
-                className=""
-                text={urd1Tab === "dialogue" ? urdu1Dialogue : (urdu1Note || "(No Urdu)")}
-              />
+              <pre dir="rtl" className="whitespace-pre-wrap">
+                {urd1Tab === "dialogue"
+                  ? urdu1Dialogue
+                  : urdu1Note || "(No Urdu)"}
+              </pre>
             </div>
           </div>
 
@@ -373,11 +369,11 @@ export default function Detail() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              <PreBlock
-                dir="rtl"
-                className=""
-                text={urd2Tab === "dialogue" ? urdu2Dialogue : (urdu2Note || "(No Urdu)")}
-              />
+              <pre dir="rtl" className="whitespace-pre-wrap">
+                {urd2Tab === "dialogue"
+                  ? urdu2Dialogue
+                  : urdu2Note || "(No Urdu)"}
+              </pre>
             </div>
           </div>
         </div>
