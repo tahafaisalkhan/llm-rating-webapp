@@ -175,14 +175,21 @@ export default function ComparisonRubricForm({
     return ok1 && ok2;
   };
 
+  // ✅ Relative panel completion (8 axes + relative overall)
+  const relativePanelComplete = useMemo(() => {
+    const axesDone = axes.every(isAxisComplete);
+    const relDone = isRelativeComplete(relativeOverall);
+    return axesDone && relDone;
+  }, [axes, relativeOverall]);
+
+  // Overall submit readiness (includes notes viewed + absolute)
   const allComplete = useMemo(() => {
     const axesDone = axes.every(isAxisComplete);
     const relDone = isRelativeComplete(relativeOverall);
     const absDone = isAbsoluteComplete(absoluteOverall);
 
     const nv = notesViewed || {};
-    const notesSeen =
-      !!nv.english && !!nv.urdu1 && !!nv.urdu2;
+    const notesSeen = !!nv.english && !!nv.urdu1 && !!nv.urdu2;
 
     return axesDone && relDone && absDone && notesSeen;
   }, [axes, relativeOverall, absoluteOverall, notesViewed]);
@@ -435,13 +442,19 @@ export default function ComparisonRubricForm({
           </button>
           <button
             type="button"
-            onClick={() => setMode("absolute")}
+            onClick={() => {
+              if (relativePanelComplete) setMode("absolute");
+            }}
+            disabled={!relativePanelComplete}
             className={[
               "px-3 py-1 border-l font-semibold",
-              mode === "absolute"
-                ? "bg-black text-white"
-                : "bg-white text-gray-800 hover:bg-gray-100",
+              relativePanelComplete
+                ? (mode === "absolute"
+                    ? "bg-black text-white"
+                    : "bg-white text-gray-800 hover:bg-gray-100")
+                : "bg-gray-100 text-gray-400 cursor-not-allowed",
             ].join(" ")}
+            title={relativePanelComplete ? "" : "Complete Relative Grading to unlock"}
           >
             Absolute Grading
           </button>
