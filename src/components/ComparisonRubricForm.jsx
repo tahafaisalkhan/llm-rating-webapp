@@ -35,6 +35,16 @@ export default function ComparisonRubricForm({
   const [err, setErr] = useState("");
   const [savedOnce, setSavedOnce] = useState(false);
 
+  // NEW: local flip counters (we'll send as deltas to server)
+  const [axisChangeCounts, setAxisChangeCounts] = useState(
+    () => Array.from({ length: 8 }).map(() => 0)
+  );
+  const [relativeChangeCount, setRelativeChangeCount] = useState(0);
+  const [absoluteChangeCounts, setAbsoluteChangeCounts] = useState({
+    t1: 0,
+    t2: 0,
+  });
+
   // which panel is showing: "relative" (axes) or "absolute" (overall 1–5)
   const [mode, setMode] = useState("relative");
 
@@ -128,9 +138,16 @@ export default function ComparisonRubricForm({
     })();
   }, [comparison, rater]);
 
+  // Count flips when axis winner changes (ignore first pick)
   const setAxisWinner = (idx, winner) =>
-    setAxes((old) =>
-      old.map((a, i) =>
+    setAxes((old) => {
+      const prev = old[idx]?.winner ?? null;
+      if (prev !== null && prev !== winner) {
+        setAxisChangeCounts((cs) =>
+          cs.map((c, i) => (i === idx ? c + 1 : c))
+        );
+      }
+      return old.map((a, i) =>
         i === idx
           ? {
               winner,
@@ -138,8 +155,8 @@ export default function ComparisonRubricForm({
               tieQuality: winner === 0 ? a.tieQuality ?? null : null,
             }
           : a
-      )
-    );
+      );
+    });
 
   const setAxisStrength = (idx, strength) =>
     setAxes((old) => old.map((a, i) => (i === idx ? { ...a, strength } : a)));
@@ -289,6 +306,21 @@ export default function ComparisonRubricForm({
       });
 
       if (!res.ok) throw new Error(await res.text());
+
+      // Also persist flip counters as deltas to NoteCounter
+      await fetch("/api/note-counter/changes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rater,
+          comparison,
+          axisWinnerChanges: axisChangeCounts,
+          relativeOverallChanges: relativeChangeCount,
+          absoluteT1Changes: absoluteChangeCounts.t1,
+          absoluteT2Changes: absoluteChangeCounts.t2,
+        }),
+      });
+
       setSavedOnce(true);
       alert("Rating saved.");
     } catch (e) {
@@ -656,11 +688,16 @@ export default function ComparisonRubricForm({
                   <RelativeWinnerButtons
                     winner={relativeOverall.winner}
                     onChange={(w) =>
-                      setRelativeOverall((prev) => ({
-                        winner: w,
-                        strength: w === 0 ? null : prev.strength,
-                        tieQuality: w === 0 ? prev.tieQuality ?? null : null,
-                      }))
+                      setRelativeOverall((prev) => {
+                        if (prev.winner !== null && prev.winner !== w) {
+                          setRelativeChangeCount((n) => n + 1);
+                        }
+                        return {
+                          winner: w,
+                          strength: w === 0 ? null : prev.strength,
+                          tieQuality: w === 0 ? prev.tieQuality ?? null : null,
+                        };
+                      })
                     }
                   />
                   {relativeOverall.winner === 1 ||
@@ -709,7 +746,13 @@ export default function ComparisonRubricForm({
               <NumericLikert
                 value={absoluteOverall.t1}
                 onChange={(v) =>
-                  setAbsoluteOverall((prev) => ({ ...prev, t1: v }))
+                  setAbsoluteOverall((prev) => {
+                    // count absolute T1 rating change (ignore first pick)
+                    if (prev.t1 !== null && prev.t1 !== v) {
+                      setAbsoluteChangeCounts((c) => ({ ...c, t1: c.t1 + 1 }));
+                    }
+                    return { ...prev, t1: v };
+                  })
                 }
               />
             </div>
@@ -726,7 +769,13 @@ export default function ComparisonRubricForm({
               <NumericLikert
                 value={absoluteOverall.t2}
                 onChange={(v) =>
-                  setAbsoluteOverall((prev) => ({ ...prev, t2: v }))
+                  setAbsoluteOverall((prev) => {
+                    // count absolute T2 rating change (ignore first pick)
+                    if (prev.t2 !== null && prev.t2 !== v) {
+                      setAbsoluteChangeCounts((c) => ({ ...c, t2: c.t2 + 1 }));
+                    }
+                    return { ...prev, t2: v };
+                  })
                 }
               />
             </div>

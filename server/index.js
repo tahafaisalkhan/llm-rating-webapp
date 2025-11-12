@@ -180,6 +180,70 @@ app.post("/api/note-counter/increment", async (req, res) => {
   }
 });
 
+/** --------- NEW: preference/score change counters (incremental) --------- */
+/**
+ * Expects deltas since page load to increment server totals without race
+ * {
+ *   rater, comparison,
+ *   axisWinnerChanges: [n0..n7],            // optional
+ *   relativeOverallChanges: Number,         // optional
+ *   absoluteT1Changes: Number,              // optional
+ *   absoluteT2Changes: Number               // optional
+ * }
+ */
+app.post("/api/note-counter/changes", async (req, res) => {
+  try {
+    const {
+      rater,
+      comparison,
+      axisWinnerChanges,
+      relativeOverallChanges,
+      absoluteT1Changes,
+      absoluteT2Changes,
+    } = req.body || {};
+
+    if (!rater || !comparison) {
+      return res.status(400).json({ error: "Missing rater or comparison" });
+    }
+
+    const inc = {};
+
+    // Per-axis increments: build $inc for each index present
+    if (Array.isArray(axisWinnerChanges)) {
+      axisWinnerChanges.forEach((val, idx) => {
+        const n = Number(val) || 0;
+        if (n !== 0 && idx >= 0 && idx < 8) {
+          inc[`axisWinnerChanges.${idx}`] = n;
+        }
+      });
+    }
+
+    if (typeof relativeOverallChanges === "number" && relativeOverallChanges !== 0) {
+      inc["relativeOverallChanges"] = relativeOverallChanges;
+    }
+
+    if (typeof absoluteT1Changes === "number" && absoluteT1Changes !== 0) {
+      inc["absoluteT1Changes"] = absoluteT1Changes;
+    }
+    if (typeof absoluteT2Changes === "number" && absoluteT2Changes !== 0) {
+      inc["absoluteT2Changes"] = absoluteT2Changes;
+    }
+
+    const update = Object.keys(inc).length ? { $inc: inc } : { $setOnInsert: {} };
+
+    const doc = await NoteCounter.findOneAndUpdate(
+      { rater, comparison: String(comparison) },
+      update,
+      { upsert: true, new: true, lean: true }
+    );
+
+    res.json({ ok: true, counter: doc });
+  } catch (e) {
+    console.error("POST /api/note-counter/changes error:", e);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 /** ----------------- NOTE COUNTER FETCH (GET current clicks) ----------------- */
 app.get("/api/note-counter/get", async (req, res) => {
   try {
@@ -198,13 +262,20 @@ app.get("/api/note-counter/get", async (req, res) => {
       englishNote: doc.englishNote || 0,
       urdu1Note: doc.urdu1Note || 0,
       urdu2Note: doc.urdu2Note || 0,
+
+      // expose the change counters too
+      axisWinnerChanges: Array.isArray(doc.axisWinnerChanges)
+        ? doc.axisWinnerChanges
+        : Array.from({ length: 8 }).map(() => 0),
+      relativeOverallChanges: doc.relativeOverallChanges || 0,
+      absoluteT1Changes: doc.absoluteT1Changes || 0,
+      absoluteT2Changes: doc.absoluteT2Changes || 0,
     });
   } catch (e) {
     console.error("GET /api/note-counter/get error:", e);
     res.json({ exists: false });
   }
 });
-
 
 /** ---------- Default route redirect to /login ---------- */
 app.get("/", (_req, res) => {
