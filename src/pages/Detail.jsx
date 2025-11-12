@@ -27,10 +27,12 @@ export default function Detail() {
   const [err, setErr] = useState("");
   const [startedAtMs] = useState(() => Date.now());
 
+  // tab state
   const [engTab, setEngTab] = useState("dialogue");
   const [urd1Tab, setUrd1Tab] = useState("dialogue");
   const [urd2Tab, setUrd2Tab] = useState("dialogue");
 
+  // whether notes have been opened (persisted via DB)
   const [seenEnglishNote, setSeenEnglishNote] = useState(false);
   const [seenUrdu1Note, setSeenUrdu1Note] = useState(false);
   const [seenUrdu2Note, setSeenUrdu2Note] = useState(false);
@@ -55,6 +57,7 @@ export default function Detail() {
     (async () => {
       try {
         setErr("");
+        // Load case data
         const res = await fetch("/data/paired.json");
         if (!res.ok) throw new Error("Missing /data/paired.json");
         const all = await res.json();
@@ -63,6 +66,7 @@ export default function Detail() {
         if (!hit) throw new Error("Case not found");
         setRow(hit);
 
+        // ✅ Load existing note click counts
         const q = new URLSearchParams({ rater, comparison: comparisonId });
         const res2 = await fetch(`/api/note-counter/get?${q}`);
         if (res2.ok) {
@@ -187,8 +191,8 @@ export default function Detail() {
                 {urd1Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-3 py-2 text-base leading-relaxed" dir="rtl">
-              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq">
+            <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
+              <pre dir="rtl" className="whitespace-pre-wrap">
                 {urd1Tab === "dialogue" ? urdu1Dialogue : urdu1Note || "(No Urdu)"}
               </pre>
             </div>
@@ -208,22 +212,23 @@ export default function Detail() {
                   }
                 }}
                 className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
-                  urdu2Tab === "dialogue"
+                  urd2Tab === "dialogue"
                     ? "bg-blue-600 text-white hover:bg-blue-700"
                     : "bg-orange-500 text-white hover:bg-orange-600"
                 }`}
               >
-                {urdu2Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
+                {urd2Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-3 py-2 text-base leading-relaxed" dir="rtl">
-              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq">
-                {urdu2Tab === "dialogue" ? urdu2Dialogue : urdu2Note || "(No Urdu)"}
+            <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
+              <pre dir="rtl" className="whitespace-pre-wrap">
+                {urd2Tab === "dialogue" ? urdu2Dialogue : urdu2Note || "(No Urdu)"}
               </pre>
             </div>
           </div>
         </div>
 
+        {/* Rating panel */}
         <div className="border rounded-2xl bg-white p-4 shadow-md">
           <ComparisonRubricForm
             rater={rater}
