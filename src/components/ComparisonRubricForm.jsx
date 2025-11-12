@@ -199,7 +199,7 @@ export default function ComparisonRubricForm({
     setSaving(true);
     setErr("");
 
-  try {
+    try {
       const axesPayload = {};
       axes.forEach((a, i) => {
         axesPayload[`axis${i + 1}`] = {
@@ -305,7 +305,13 @@ export default function ComparisonRubricForm({
   );
 
   const Likert = ({ idx, strength }) => {
-    const labels = ["Very Weak", "Weak", "Moderate", "Strong", "Very Strong"];
+    const labels = [
+      "Barely better",
+      "Slightly better",
+      "Moderately better",
+      "Much better",
+      "Clearly better",
+    ];
     return (
       <div className="flex items-center gap-2 text-[11px] ml-2">
         {labels.map((label, i) => {
@@ -328,7 +334,13 @@ export default function ComparisonRubricForm({
 
   // Likert-style for relative overall (no idx)
   const RelativeLikert = ({ value, onChange }) => {
-    const labels = ["Very Weak", "Weak", "Moderate", "Strong", "Very Strong"];
+    const labels = [
+      "Barely better",
+      "Slightly better",
+      "Moderately better",
+      "Much better",
+      "Clearly better",
+    ];
     return (
       <div className="flex items-center gap-2 text-[11px] ml-2">
         {labels.map((label, i) => {
@@ -511,7 +523,7 @@ export default function ComparisonRubricForm({
                       </div>
                       <div className="text-[11px] text-gray-500 mt-0.5 text-right pointer-events-none">
                         {needsStrength
-                          ? "Winner chosen – rate the strength (Very Weak → Very Strong)."
+                          ? "How much better is the chosen translation than the other?"
                           : isTie
                           ? "Tie selected – specify if both translations are bad, good, or excellent."
                           : "Pick Translation 1, Translation 2, or Tie."}
