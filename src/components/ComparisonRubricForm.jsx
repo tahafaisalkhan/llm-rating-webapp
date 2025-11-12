@@ -194,6 +194,51 @@ export default function ComparisonRubricForm({
     return axesDone && relDone && absDone && notesSeen;
   }, [axes, relativeOverall, absoluteOverall, notesViewed]);
 
+  // 🔻 Build "What's Missing" lists (relative + absolute)
+  const { missingRelative, missingAbsolute, totalMissing } = useMemo(() => {
+    const mr = [];
+    const ma = [];
+
+    // 8 axes
+    axes.forEach((a, i) => {
+      const n = i + 1;
+      if (a.winner == null) {
+        mr.push(`Axis ${n}: choose a winner`);
+      } else if (a.winner === 1 || a.winner === 2) {
+        if (!(typeof a.strength === "number" && a.strength >= 1 && a.strength <= 5)) {
+          mr.push(`Axis ${n}: select strength (1–5)`);
+        }
+      } else if (a.winner === 0) {
+        if (!a.tieQuality) mr.push(`Axis ${n}: choose tie quality`);
+      }
+    });
+
+    // Relative overall
+    const ro = relativeOverall;
+    if (ro.winner == null) {
+      mr.push("Relative overall: choose a winner");
+    } else if (ro.winner === 1 || ro.winner === 2) {
+      if (!(typeof ro.strength === "number" && ro.strength >= 1 && ro.strength <= 5)) {
+        mr.push("Relative overall: select strength (1–5)");
+      }
+    } else if (ro.winner === 0) {
+      if (!ro.tieQuality) mr.push("Relative overall: choose tie quality");
+    }
+
+    // Absolute
+    if (!(typeof absoluteOverall.t1 === "number" && absoluteOverall.t1 >= 1 && absoluteOverall.t1 <= 5)) {
+      ma.push("Absolute: rate Translation 1 (1–5)");
+    }
+    if (!(typeof absoluteOverall.t2 === "number" && absoluteOverall.t2 >= 1 && absoluteOverall.t2 <= 5)) {
+      ma.push("Absolute: rate Translation 2 (1–5)");
+    }
+
+    return { missingRelative: mr, missingAbsolute: ma, totalMissing: mr.length + ma.length };
+  }, [axes, relativeOverall, absoluteOverall]);
+
+  // UI state for drop-up
+  const [openMissing, setOpenMissing] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -439,37 +484,92 @@ export default function ComparisonRubricForm({
           </span>
         </div>
 
-        <div className="inline-flex rounded-md border overflow-hidden text-xs">
-          <button
-            type="button"
-            onClick={() => setMode("relative")}
-            className={[
-              "px-3 py-1 font-semibold",
-              mode === "relative"
-                ? "bg-black text-white"
-                : "bg-white text-gray-800 hover:bg-gray-100",
-            ].join(" ")}
-          >
-            Relative Grading
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (relativePanelComplete) setMode("absolute");
-            }}
-            disabled={!relativePanelComplete}
-            className={[
-              "px-3 py-1 border-l font-semibold",
-              relativePanelComplete
-                ? (mode === "absolute"
-                    ? "bg-black text-white"
-                    : "bg-white text-gray-800 hover:bg-gray-100")
-                : "bg-gray-100 text-gray-400 cursor-not-allowed",
-            ].join(" ")}
-            title={relativePanelComplete ? "" : "Complete Relative Grading to unlock"}
-          >
-            Absolute Grading
-          </button>
+        {/* Right controls: mode toggle + What's Missing drop-up */}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-md border overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setMode("relative")}
+              className={[
+                "px-3 py-1 font-semibold",
+                mode === "relative"
+                  ? "bg-black text-white"
+                  : "bg-white text-gray-800 hover:bg-gray-100",
+              ].join(" ")}
+            >
+              Relative Grading
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (relativePanelComplete) setMode("absolute");
+              }}
+              disabled={!relativePanelComplete}
+              className={[
+                "px-3 py-1 border-l font-semibold",
+                relativePanelComplete
+                  ? (mode === "absolute"
+                      ? "bg-black text-white"
+                      : "bg-white text-gray-800 hover:bg-gray-100")
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed",
+              ].join(" ")}
+              title={relativePanelComplete ? "" : "Complete Relative Grading to unlock"}
+            >
+              Absolute Grading
+            </button>
+          </div>
+
+          {/* 🔻 What's Missing (drop-up) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOpenMissing((v) => !v)}
+              className={[
+                "px-3 py-1 text-xs font-semibold rounded-md",
+                "text-white bg-red-600 border border-red-700",
+                totalMissing > 0 ? "animate-pulse" : "",
+              ].join(" ")}
+              title="Show what's missing"
+            >
+              Whats Missing{typeof totalMissing === "number" ? ` (${totalMissing})` : ""}
+            </button>
+
+            {openMissing && (
+              <div className="absolute bottom-full right-0 mb-2 w-80 max-h-72 overflow-auto rounded-md border border-gray-200 shadow-lg bg-white z-20">
+                <div className="px-3 py-2 border-b bg-red-50 text-red-800 text-xs font-semibold">
+                  {totalMissing > 0 ? "Incomplete items" : "All set — nothing missing"}
+                </div>
+
+                <div className="p-3 space-y-2 text-xs">
+                  <div>
+                    <div className="font-semibold mb-1">Relative</div>
+                    {missingRelative.length ? (
+                      <ul className="list-disc ml-4 space-y-1">
+                        {missingRelative.map((m, i) => (
+                          <li key={`mr-${i}`}>{m}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="text-gray-500">No relative items missing.</div>
+                    )}
+                  </div>
+
+                  <div className="border-t pt-2">
+                    <div className="font-semibold mb-1">Absolute</div>
+                    {missingAbsolute.length ? (
+                      <ul className="list-disc ml-4 space-y-1">
+                        {missingAbsolute.map((m, i) => (
+                          <li key={`ma-${i}`}>{m}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="text-gray-500">No absolute items missing.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
