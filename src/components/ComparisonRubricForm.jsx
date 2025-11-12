@@ -37,8 +37,6 @@ export default function ComparisonRubricForm({
 
   // which panel is showing: "relative" (axes) or "absolute" (overall 1–5)
   const [mode, setMode] = useState("relative");
-  // checklist dropdown
-  const [showChecklist, setShowChecklist] = useState(false);
 
   const AXES_META = useMemo(
     () => [
@@ -90,6 +88,7 @@ export default function ComparisonRubricForm({
           setAxes(next);
         }
 
+        // relative overall (9th axis visually)
         if (j.relativeOverall) {
           setRelativeOverall({
             winner:
@@ -107,6 +106,7 @@ export default function ComparisonRubricForm({
           });
         }
 
+        // absolute overall (two 1–5 ratings)
         if (j.absoluteOverall) {
           setAbsoluteOverall({
             t1:
@@ -175,77 +175,24 @@ export default function ComparisonRubricForm({
     return ok1 && ok2;
   };
 
-  // Relative-only completion
+  // ✅ Relative panel completion (8 axes + relative overall)
   const relativePanelComplete = useMemo(() => {
     const axesDone = axes.every(isAxisComplete);
     const relDone = isRelativeComplete(relativeOverall);
     return axesDone && relDone;
   }, [axes, relativeOverall]);
 
-  // Full submit readiness (notes + absolute too)
+  // Overall submit readiness (includes notes viewed + absolute)
   const allComplete = useMemo(() => {
     const axesDone = axes.every(isAxisComplete);
     const relDone = isRelativeComplete(relativeOverall);
     const absDone = isAbsoluteComplete(absoluteOverall);
+
     const nv = notesViewed || {};
     const notesSeen = !!nv.english && !!nv.urdu1 && !!nv.urdu2;
+
     return axesDone && relDone && absDone && notesSeen;
   }, [axes, relativeOverall, absoluteOverall, notesViewed]);
-
-  // Build a missing checklist (relative, absolute, and notes)
-  const { missingRelative, missingAbsolute, missingOther, totalMissing } =
-    useMemo(() => {
-      const rel = [];
-      const abs = [];
-      const other = [];
-
-      // Relative: 8 axes
-      axes.forEach((a, i) => {
-        const n = i + 1;
-        if (a.winner === null || typeof a.winner === "undefined") {
-          rel.push(`Axis ${n}: choose a winner`);
-        } else if (a.winner === 1 || a.winner === 2) {
-          if (!(typeof a.strength === "number" && a.strength >= 1 && a.strength <= 5)) {
-            rel.push(`Axis ${n}: select strength (1–5)`);
-          }
-        } else if (a.winner === 0) {
-          if (!a.tieQuality) rel.push(`Axis ${n}: choose tie quality`);
-        }
-      });
-
-      // Relative overall
-      const ro = relativeOverall;
-      if (ro.winner === null || typeof ro.winner === "undefined") {
-        rel.push("Relative overall: choose a winner");
-      } else if (ro.winner === 1 || ro.winner === 2) {
-        if (!(typeof ro.strength === "number" && ro.strength >= 1 && ro.strength <= 5)) {
-          rel.push("Relative overall: select strength (1–5)");
-        }
-      } else if (ro.winner === 0) {
-        if (!ro.tieQuality) rel.push("Relative overall: choose tie quality");
-      }
-
-      // Absolute
-      if (!(typeof absoluteOverall.t1 === "number" && absoluteOverall.t1 >= 1 && absoluteOverall.t1 <= 5)) {
-        abs.push("Absolute: rate Translation 1 (1–5)");
-      }
-      if (!(typeof absoluteOverall.t2 === "number" && absoluteOverall.t2 >= 1 && absoluteOverall.t2 <= 5)) {
-        abs.push("Absolute: rate Translation 2 (1–5)");
-      }
-
-      // Notes viewed (submit requirement)
-      const nv = notesViewed || {};
-      if (!nv.english) other.push('Open "Go to Note" in English');
-      if (!nv.urdu1) other.push('Open "Go to Note" in Urdu 1');
-      if (!nv.urdu2) other.push('Open "Go to Note" in Urdu 2');
-
-      return {
-        missingRelative: rel,
-        missingAbsolute: abs,
-        missingOther: other,
-        totalMissing: rel.length + abs.length + other.length,
-      };
-    }, [axes, relativeOverall, absoluteOverall, notesViewed]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -381,9 +328,7 @@ export default function ComparisonRubricForm({
 
   // Likert-style for relative overall (no idx)
   const RelativeLikert = ({ value, onChange }) => {
-    const labels = ["Very Weak", "Weak", "Moderate", "Very Strong", "Very Strong"].map((l, i) =>
-      ["Very Weak", "Weak", "Moderate", "Strong", "Very Strong"][i]
-    );
+    const labels = ["Very Weak", "Weak", "Moderate", "Strong", "Very Strong"];
     return (
       <div className="flex items-center gap-2 text-[11px] ml-2">
         {labels.map((label, i) => {
@@ -471,9 +416,8 @@ export default function ComparisonRubricForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
-      {/* Heading + mode toggle + checklist chip */}
-      <div className="flex items-center justify-between gap-4 relative">
-        {/* LEFT: instruction */}
+      {/* Heading + mode toggle */}
+      <div className="flex items-center justify-between gap-4">
         <div className="font-semibold text-sm">
           Choose which Urdu translation is better on each axis, and how
           strongly.
@@ -483,72 +427,6 @@ export default function ComparisonRubricForm({
           </span>
         </div>
 
-        {/* CENTER: status chip */}
-        <div className="absolute left-1/2 -translate-x-1/2">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowChecklist((v) => !v)}
-              aria-expanded={showChecklist ? "true" : "false"}
-              className={[
-                "px-3 py-1 text-xs font-semibold rounded-full border shadow-sm",
-                allComplete
-                  ? "bg-green-600 text-white border-green-700"
-                  : "bg-yellow-50 text-yellow-800 border-yellow-300 hover:bg-yellow-100",
-              ].join(" ")}
-              title={allComplete ? "Everything complete" : "Click to see what's missing"}
-            >
-              {allComplete ? "Everything complete" : "All ratings not complete — click to see what's missing"}
-            </button>
-
-            {showChecklist && (
-              <div className="absolute z-10 mt-2 w-[28rem] max-w-[90vw] -left-1/2 translate-x-1/2 bg-white border rounded-xl shadow-lg p-3">
-                {totalMissing === 0 ? (
-                  <div className="text-sm text-green-700">
-                    ✅ You're all set. Nothing missing.
-                  </div>
-                ) : (
-                  <div className="space-y-2 text-sm">
-                    {missingRelative.length > 0 && (
-                      <div>
-                        <div className="font-semibold mb-1">Relative grading</div>
-                        <ul className="list-disc ml-5 space-y-0.5">
-                          {missingRelative.map((m, i) => (
-                            <li key={`rel-${i}`}>{m}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {missingAbsolute.length > 0 && (
-                      <div>
-                        <div className="font-semibold mb-1">Absolute grading</div>
-                        <ul className="list-disc ml-5 space-y-0.5">
-                          {missingAbsolute.map((m, i) => (
-                            <li key={`abs-${i}`}>{m}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {missingOther.length > 0 && (
-                      <div>
-                        <div className="font-semibold mb-1">Other required steps</div>
-                        <ul className="list-disc ml-5 space-y-0.5">
-                          {missingOther.map((m, i) => (
-                            <li key={`oth-${i}`}>{m}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT: mode toggle */}
         <div className="inline-flex rounded-md border overflow-hidden text-xs">
           <button
             type="button"
@@ -604,14 +482,14 @@ export default function ComparisonRubricForm({
 
               return (
                 <div
-                key={ax.label}
-                className={[
-                  "border rounded-lg px-3 py-2 transition-colors",
-                  done
-                    ? "bg-green-50 border-green-400"
-                    : "bg-gray-50 border-gray-200",
-                ].join(" ")}
-              >
+                  key={ax.label}
+                  className={[
+                    "border rounded-lg px-3 py-2 transition-colors",
+                    done
+                      ? "bg-green-50 border-green-400"
+                      : "bg-gray-50 border-gray-200",
+                  ].join(" ")}
+                >
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     {/* LEFT: label text */}
                     <div className="flex flex-col">
