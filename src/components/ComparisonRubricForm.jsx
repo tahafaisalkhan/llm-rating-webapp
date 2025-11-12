@@ -494,7 +494,6 @@ export default function ComparisonRubricForm({
               className={[
                 "px-3 py-1 text-xs font-semibold rounded-md",
                 "text-white bg-red-600 border border-red-700",
-                totalMissing > 0 ? "animate-pulse" : "",
               ].join(" ")}
               title="Show what's missing"
             >
