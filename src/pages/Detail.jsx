@@ -169,69 +169,64 @@ export default function Detail() {
             </div>
           </div>
 
-{/* Urdu 1 */}
-<div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
-  <div className="p-3 border-b flex items-center justify-between" dir="ltr">
-    <div><div className="mt-1 font-semibold text-sm">{urd1Tab === "dialogue" ? "Urdu Dialogue 1" : "Urdu Note"}</div></div>
-    <button
-      onClick={() => {
-        const next = urd1Tab === "dialogue" ? "note" : "dialogue";
-        setUrd1Tab(next);
-        if (next === "note") {
-          logNoteClick("urdu1");
-          setSeenUrdu1Note(true);
-        }
-      }}
-      className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
-        urd1Tab === "dialogue"
-          ? "bg-blue-600 text-white hover:bg-blue-700"
-          : "bg-orange-500 text-white hover:bg-orange-600"
-      }`}
-    >
-      {urd1Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
-    </button>
-  </div>
-  <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-    <pre
-      dir="rtl"
-      className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]"
-    >
-      {urd1Tab === "dialogue" ? urdu1Dialogue : urdu1Note || "(No Urdu)"}
-    </pre>
-  </div>
-</div>
+          {/* Urdu 1 */}
+          <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
+            <div className="p-3 border-b flex items-center justify-between" dir="ltr">
+              <div><div className="mt-1 font-semibold text-sm">{urd1Tab === "dialogue" ? "Urdu Dialogue 1" : "Urdu Note"}</div></div>
+              <button
+                onClick={() => {
+                  const next = urd1Tab === "dialogue" ? "note" : "dialogue";
+                  setUrd1Tab(next);
+                  if (next === "note") {
+                    logNoteClick("urdu1");
+                    setSeenUrdu1Note(true);
+                  }
+                }}
+                className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
+                  urd1Tab === "dialogue"
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-orange-500 text-white hover:bg-orange-600"
+                }`}
+              >
+                {urd1Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]">
+                {urd1Tab === "dialogue" ? urdu1Dialogue : urdu1Note || "(No Urdu)"}
+              </pre>
+            </div>
+          </div>
 
-{/* Urdu 2 */}
-<div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
-  <div className="p-3 border-b flex items-center justify-between" dir="ltr">
-    <div><div className="mt-1 font-semibold text-sm">{urd2Tab === "dialogue" ? "Urdu Dialogue 2" : "Urdu Note"}</div></div>
-    <button
-      onClick={() => {
-        const next = urd2Tab === "dialogue" ? "note" : "dialogue";
-        setUrd2Tab(next);
-        if (next === "note") {
-          logNoteClick("urdu2");
-          setSeenUrdu2Note(true);
-        }
-      }}
-      className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
-        urd2Tab === "dialogue"
-          ? "bg-blue-600 text-white hover:bg-blue-700"
-          : "bg-orange-500 text-white hover:bg-orange-600"
-      }`}
-    >
-      {urd2Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
-    </button>
-  </div>
-  <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-    <pre
-      dir="rtl"
-      className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]"
-    >
-      {urd2Tab === "dialogue" ? urdu2Dialogue : urdu2Note || "(No Urdu)"}
-    </pre>
-  </div>
-</div>
+          {/* Urdu 2 */}
+          <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
+            <div className="p-3 border-b flex items-center justify-between" dir="ltr">
+              <div><div className="mt-1 font-semibold text-sm">{urd2Tab === "dialogue" ? "Urdu Dialogue 2" : "Urdu Note"}</div></div>
+              <button
+                onClick={() => {
+                  const next = urd2Tab === "dialogue" ? "note" : "dialogue";
+                  setUrd2Tab(next);
+                  if (next === "note") {
+                    logNoteClick("urdu2");
+                    setSeenUrdu2Note(true);
+                  }
+                }}
+                className={`text-xs px-2 py-1 rounded-lg font-semibold transition ${
+                  urd2Tab === "dialogue"
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-orange-500 text-white hover:bg-orange-600"
+                }`}
+              >
+                {urd2Tab === "dialogue" ? "Go to Note" : "Go to Dialogue"}
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]">
+                {urd2Tab === "dialogue" ? urdu2Dialogue : urdu2Note || "(No Urdu)"}
+              </pre>
+            </div>
+          </div>
+        </div>
 
         {/* Rating panel */}
         <div className="border rounded-2xl bg-white p-4 shadow-md">
