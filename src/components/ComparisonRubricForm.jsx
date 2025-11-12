@@ -16,13 +16,13 @@ export default function ComparisonRubricForm({
     () =>
       Array.from({ length: 8 }).map(() => ({
         winner: null, // 0 = tie, 1 = Translation 1, 2 = Translation 2
-        strength: 3, // 1–5 when winner is 1 or 2
+        strength: null, // 1–5 when winner is 1 or 2, starts unselected
         tieQuality: null, // "bad" | "good" | "excellent" when winner = 0
       }))
   );
   const [relativeOverall, setRelativeOverall] = useState({
     winner: null,
-    strength: 3,
+    strength: null,
     tieQuality: null,
   });
   const [absoluteOverall, setAbsoluteOverall] = useState({
@@ -81,7 +81,7 @@ export default function ComparisonRubricForm({
                 a.strength >= 1 &&
                 a.strength <= 5
                   ? a.strength
-                  : 3,
+                  : null,
               tieQuality: a.tieQuality ?? null,
             });
           }
@@ -101,7 +101,7 @@ export default function ComparisonRubricForm({
               j.relativeOverall.strength >= 1 &&
               j.relativeOverall.strength <= 5
                 ? j.relativeOverall.strength
-                : 3,
+                : null,
             tieQuality: j.relativeOverall.tieQuality ?? null,
           });
         }
@@ -134,7 +134,7 @@ export default function ComparisonRubricForm({
         i === idx
           ? {
               winner,
-              strength: winner === 0 ? null : a.strength ?? 3,
+              strength: winner === 0 ? null : a.strength,
               tieQuality: winner === 0 ? a.tieQuality ?? null : null,
             }
           : a
@@ -586,7 +586,7 @@ export default function ComparisonRubricForm({
             {AXES_META.map((ax, idx) => {
               const a = axes[idx];
               const winner = a?.winner;
-              const strength = a?.strength ?? 3;
+              const strength = a?.strength ?? null;
               const tieQuality = a?.tieQuality ?? null;
               const needsStrength = winner === 1 || winner === 2;
               const isTie = winner === 0;
@@ -661,7 +661,7 @@ export default function ComparisonRubricForm({
                     onChange={(w) =>
                       setRelativeOverall((prev) => ({
                         winner: w,
-                        strength: w === 0 ? null : prev.strength ?? 3,
+                        strength: w === 0 ? null : prev.strength,
                         tieQuality: w === 0 ? prev.tieQuality ?? null : null,
                       }))
                     }
@@ -669,7 +669,7 @@ export default function ComparisonRubricForm({
                   {relativeOverall.winner === 1 ||
                   relativeOverall.winner === 2 ? (
                     <RelativeLikert
-                      value={relativeOverall.strength ?? 3}
+                      value={relativeOverall.strength ?? null}
                       onChange={(val) =>
                         setRelativeOverall((prev) => ({
                           ...prev,
