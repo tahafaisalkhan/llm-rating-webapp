@@ -484,41 +484,8 @@ export default function ComparisonRubricForm({
           </span>
         </div>
 
-        {/* Right controls: mode toggle + What's Missing drop-up */}
+        {/* Right controls: What's Missing drop-up (left) + mode toggle (right) */}
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-md border overflow-hidden text-xs">
-            <button
-              type="button"
-              onClick={() => setMode("relative")}
-              className={[
-                "px-3 py-1 font-semibold",
-                mode === "relative"
-                  ? "bg-black text-white"
-                  : "bg-white text-gray-800 hover:bg-gray-100",
-              ].join(" ")}
-            >
-              Relative Grading
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (relativePanelComplete) setMode("absolute");
-              }}
-              disabled={!relativePanelComplete}
-              className={[
-                "px-3 py-1 border-l font-semibold",
-                relativePanelComplete
-                  ? (mode === "absolute"
-                      ? "bg-black text-white"
-                      : "bg-white text-gray-800 hover:bg-gray-100")
-                  : "bg-gray-100 text-gray-400 cursor-not-allowed",
-              ].join(" ")}
-              title={relativePanelComplete ? "" : "Complete Relative Grading to unlock"}
-            >
-              Absolute Grading
-            </button>
-          </div>
-
           {/* 🔻 What's Missing (drop-up) */}
           <div className="relative">
             <button
@@ -569,6 +536,39 @@ export default function ComparisonRubricForm({
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="inline-flex rounded-md border overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setMode("relative")}
+              className={[
+                "px-3 py-1 font-semibold",
+                mode === "relative"
+                  ? "bg-black text-white"
+                  : "bg-white text-gray-800 hover:bg-gray-100",
+              ].join(" ")}
+            >
+              Relative Grading
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (relativePanelComplete) setMode("absolute");
+              }}
+              disabled={!relativePanelComplete}
+              className={[
+                "px-3 py-1 border-l font-semibold",
+                relativePanelComplete
+                  ? (mode === "absolute"
+                      ? "bg-black text-white"
+                      : "bg-white text-gray-800 hover:bg-gray-100")
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed",
+              ].join(" ")}
+              title={relativePanelComplete ? "" : "Complete Relative Grading to unlock"}
+            >
+              Absolute Grading
+            </button>
           </div>
         </div>
       </div>
