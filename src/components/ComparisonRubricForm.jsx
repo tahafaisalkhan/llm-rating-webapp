@@ -476,11 +476,10 @@ export default function ComparisonRubricForm({
       {/* Heading + mode toggle */}
       <div className="flex items-center justify-between gap-4">
         <div className="font-semibold text-sm">
-          Choose which Urdu translation is better on each axis, and how
-          strongly.
+          Rating Rubric -
           <span className="font-normal">
             {" "}
-            (Translation 1 vs Translation 2 vs Tie)
+            (Translation 1 vs Translation 2 or Tie)
           </span>
         </div>
 
@@ -649,8 +648,7 @@ export default function ComparisonRubricForm({
                   </div>
                   <div className="text-[11px] text-gray-500 mt-0.5">
                     Which translation is better overall for this case, and how
-                    strongly? (If Tie, indicate whether both are bad, good, or
-                    excellent.)
+                    strongly?
                   </div>
                 </div>
 
