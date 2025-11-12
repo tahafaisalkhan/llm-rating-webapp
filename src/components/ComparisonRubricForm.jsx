@@ -243,10 +243,13 @@ export default function ComparisonRubricForm({
     };
   }, [axes, relativeOverall, absoluteOverall, notesViewed, allComplete]);
 
-  // Broadcast checklist to Detail.jsx whenever it changes
+  // Broadcast checklist to Detail.jsx whenever it changes (ASYNC via rAF)
   useEffect(() => {
-    const evt = new CustomEvent("rating-checklist", { detail: checklist });
-    window.dispatchEvent(evt);
+    let raf = requestAnimationFrame(() => {
+      const evt = new CustomEvent("rating-checklist", { detail: checklist });
+      window.dispatchEvent(evt);
+    });
+    return () => cancelAnimationFrame(raf);
   }, [checklist]);
 
   const handleSubmit = async (e) => {
@@ -543,7 +546,7 @@ export default function ComparisonRubricForm({
                       </div>
                     </div>
 
-                    {/* Right: controls with helper text under the buttons */}
+                    {/* Right: controls with helper text under the buttons (click-safe) */}
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <div className="flex items-center gap-3 relative z-10">
                         <WinnerButtons idx={idx} winner={winner} />
