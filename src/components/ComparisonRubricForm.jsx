@@ -199,7 +199,7 @@ export default function ComparisonRubricForm({
     setSaving(true);
     setErr("");
 
-    try {
+  try {
       const axesPayload = {};
       axes.forEach((a, i) => {
         axesPayload[`axis${i + 1}`] = {
@@ -496,24 +496,26 @@ export default function ComparisonRubricForm({
                       <div className="text-[13px] font-medium">
                         {ax.label}
                       </div>
-                      <div className="text-[11px] text-gray-500 mt-0.5">
+                    </div>
+
+                    {/* RIGHT: selection controls + helper under buttons */}
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <div className="flex items-center gap-3 relative z-10">
+                        <WinnerButtons idx={idx} winner={winner} />
+                        {needsStrength && (
+                          <Likert idx={idx} strength={strength} />
+                        )}
+                        {isTie && (
+                          <TieQuality idx={idx} tieQuality={tieQuality} />
+                        )}
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-0.5 text-right pointer-events-none">
                         {needsStrength
                           ? "Winner chosen – rate the strength (Very Weak → Very Strong)."
                           : isTie
                           ? "Tie selected – specify if both translations are bad, good, or excellent."
                           : "Pick Translation 1, Translation 2, or Tie."}
                       </div>
-                    </div>
-
-                    {/* RIGHT: selection controls */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <WinnerButtons idx={idx} winner={winner} />
-                      {needsStrength && (
-                        <Likert idx={idx} strength={strength} />
-                      )}
-                      {isTie && (
-                        <TieQuality idx={idx} tieQuality={tieQuality} />
-                      )}
                     </div>
                   </div>
                 </div>
