@@ -359,7 +359,7 @@ export default function ComparisonRubricForm({
                           ? "How much better is the chosen translation?"
                           : isTie
                           ? "If Tie, specify if both translations are bad, good, or excellent."
-                          : "Pick Translation 1, Translation 2, or Tie."}
+                          : "Pick which translation you think is better."}
                       </div>
                     </div>
                   </div>
