@@ -1,5 +1,4 @@
 // src/components/ComparisonRubricForm.jsx
-
 import { useEffect, useMemo, useState } from "react";
 
 const AXIS_SCROLL_MAX_H_CLASS = "max-h-[12rem]";
@@ -36,6 +35,9 @@ export default function ComparisonRubricForm({
   const [savedOnce, setSavedOnce] = useState(false);
   const [err, setErr] = useState("");
 
+  // NEW — modal for missing fields
+  const [showMissingModal, setShowMissingModal] = useState(false);
+
   const [mode, setMode] = useState("relative");
 
   const AXES_META = useMemo(
@@ -71,8 +73,7 @@ export default function ComparisonRubricForm({
             const a = j.axes[`axis${i}`] || {};
             next.push({
               winner: [0, 1, 2].includes(a.winner) ? a.winner : null,
-              strength:
-                typeof a.strength === "number" ? a.strength : null,
+              strength: typeof a.strength === "number" ? a.strength : null,
               tieQuality: a.tieQuality ?? null,
             });
           }
@@ -119,21 +120,27 @@ export default function ComparisonRubricForm({
     );
 
   const setAxisStrength = (idx, s) =>
-    setAxes((old) => old.map((a, i) => (i === idx ? { ...a, strength: s } : a)));
+    setAxes((old) =>
+      old.map((a, i) => (i === idx ? { ...a, strength: s } : a))
+    );
 
   const setAxisTieQuality = (idx, t) =>
-    setAxes((old) => old.map((a, i) => (i === idx ? { ...a, tieQuality: t } : a)));
+    setAxes((old) =>
+      old.map((a, i) => (i === idx ? { ...a, tieQuality: t } : a))
+    );
 
   const isAxisComplete = (a) => {
     if (a.winner == null) return false;
-    if (a.winner === 1 || a.winner === 2) return a.strength >= 1 && a.strength <= 5;
+    if (a.winner === 1 || a.winner === 2)
+      return a.strength >= 1 && a.strength <= 5;
     if (a.winner === 0) return !!a.tieQuality;
     return false;
   };
 
   const isRelativeComplete = (ro) => {
     if (ro.winner == null) return false;
-    if (ro.winner === 1 || ro.winner === 2) return ro.strength >= 1 && ro.strength <= 5;
+    if (ro.winner === 1 || ro.winner === 2)
+      return ro.strength >= 1 && ro.strength <= 5;
     if (ro.winner === 0) return !!ro.tieQuality;
     return false;
   };
@@ -149,8 +156,53 @@ export default function ComparisonRubricForm({
     );
   }, [axes, relativeOverall, absoluteOverall]);
 
+  // Build missing list
+  const missingList = (() => {
+    const list = [];
+
+    axes.forEach((a, i) => {
+      const n = i + 1;
+      if (a.winner == null) list.push(`Axis ${n}: choose a winner`);
+      else if (a.winner === 1 || a.winner === 2) {
+        if (!(a.strength >= 1 && a.strength <= 5))
+          list.push(`Axis ${n}: choose strength (1–5)`);
+      } else if (a.winner === 0) {
+        if (!a.tieQuality) list.push(`Axis ${n}: choose tie quality`);
+      }
+    });
+
+    if (relativeOverall.winner == null)
+      list.push("Relative overall: choose a winner");
+    else if (relativeOverall.winner === 1 || relativeOverall.winner === 2) {
+      if (
+        !(
+          relativeOverall.strength >= 1 &&
+          relativeOverall.strength <= 5
+        )
+      )
+        list.push("Relative overall: choose strength (1–5)");
+    } else if (relativeOverall.winner === 0) {
+      if (!relativeOverall.tieQuality)
+        list.push("Relative overall: choose tie quality");
+    }
+
+    if (!(absoluteOverall.t1 >= 1 && absoluteOverall.t1 <= 5))
+      list.push("Absolute: rate Translation 1 (1–5)");
+
+    if (!(absoluteOverall.t2 >= 1 && absoluteOverall.t2 <= 5))
+      list.push("Absolute: rate Translation 2 (1–5)");
+
+    return list;
+  })();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!allComplete) {
+      setShowMissingModal(true);
+      return;
+    }
+
     setSaving(true);
     setErr("");
 
@@ -164,10 +216,10 @@ export default function ComparisonRubricForm({
         };
       });
 
-      let durationSeconds = null;
-      if (typeof startedAtMs === "number") {
-        durationSeconds = (Date.now() - startedAtMs) / 1000;
-      }
+      const durationSeconds =
+        typeof startedAtMs === "number"
+          ? (Date.now() - startedAtMs) / 1000
+          : null;
 
       const body = {
         rater,
@@ -178,8 +230,12 @@ export default function ComparisonRubricForm({
         durationSeconds,
         relativeOverall: {
           winner: relativeOverall.winner,
-          strength: relativeOverall.winner === 0 ? null : relativeOverall.strength,
-          tieQuality: relativeOverall.winner === 0 ? relativeOverall.tieQuality : null,
+          strength:
+            relativeOverall.winner === 0 ? null : relativeOverall.strength,
+          tieQuality:
+            relativeOverall.winner === 0
+              ? relativeOverall.tieQuality
+              : null,
         },
         absoluteOverall: {
           translation1: absoluteOverall.t1,
@@ -215,10 +271,16 @@ export default function ComparisonRubricForm({
           className={[
             "px-2 py-0.5",
             i < 2 ? "border-r" : "",
-            winner === val ? "bg-black text-white" : "bg-white hover:bg-gray-100",
+            winner === val
+              ? "bg-black text-white"
+              : "bg-white hover:bg-gray-100",
           ].join(" ")}
         >
-          {val === 1 ? "Translation 1" : val === 2 ? "Translation 2" : "Tie"}
+          {val === 1
+            ? "Translation 1"
+            : val === 2
+            ? "Translation 2"
+            : "Tie"}
         </button>
       ))}
     </div>
@@ -284,237 +346,304 @@ export default function ComparisonRubricForm({
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
-      {/* Header + mode toggle */}
-      <div className="flex items-center justify-between">
-        <div className="font-semibold text-sm">
-          Rating Rubric – <span className="font-normal">(Translation 1 vs 2 or Tie)</span>
-        </div>
+    <>
+      {/* Missing Modal */}
+      {showMissingModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-5 w-96 shadow-lg">
+            <div className="font-semibold text-lg mb-3">
+              Missing Fields
+            </div>
 
-        <div className="inline-flex rounded-md border overflow-hidden text-xs">
-          <button
-            type="button"
-            onClick={() => setMode("relative")}
-            className={[
-              "px-3 py-1",
-              mode === "relative" ? "bg-black text-white" : "bg-white hover:bg-gray-100",
-            ].join(" ")}
-          >
-            Relative Grading
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (axes.every(isAxisComplete) && isRelativeComplete(relativeOverall)) {
-                setMode("absolute");
-              }
-            }}
-            disabled={!axes.every(isAxisComplete) || !isRelativeComplete(relativeOverall)}
-            className={[
-              "px-3 py-1 border-l",
-              axes.every(isAxisComplete) && isRelativeComplete(relativeOverall)
-                ? mode === "absolute"
+            {missingList.length === 0 ? (
+              <div className="text-sm text-gray-600">
+                Everything is complete.
+              </div>
+            ) : (
+              <ul className="list-disc ml-5 space-y-1 text-sm">
+                {missingList.map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-4 flex justify-end">
+              <button
+                className="px-4 py-1.5 bg-black text-white rounded"
+                onClick={() => setShowMissingModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
+        {/* Header + mode toggle */}
+        <div className="flex items-center justify-between">
+          <div className="font-semibold text-sm">
+            Rating Rubric –{" "}
+            <span className="font-normal">(Translation 1 vs 2 or Tie)</span>
+          </div>
+
+          <div className="inline-flex rounded-md border overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setMode("relative")}
+              className={[
+                "px-3 py-1",
+                mode === "relative"
                   ? "bg-black text-white"
-                  : "bg-white hover:bg-gray-100"
-                : "bg-gray-100 text-gray-400",
-            ].join(" ")}
-          >
-            Absolute Grading
-          </button>
+                  : "bg-white hover:bg-gray-100",
+              ].join(" ")}
+            >
+              Relative Grading
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  axes.every(isAxisComplete) &&
+                  isRelativeComplete(relativeOverall)
+                ) {
+                  setMode("absolute");
+                }
+              }}
+              className={[
+                "px-3 py-1 border-l",
+                axes.every(isAxisComplete) &&
+                isRelativeComplete(relativeOverall)
+                  ? mode === "absolute"
+                    ? "bg-black text-white"
+                    : "bg-white hover:bg-gray-100"
+                  : "bg-gray-100 text-gray-400",
+              ].join(" ")}
+            >
+              Absolute Grading
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Panels */}
-      <div className={`space-y-2 overflow-y-auto pr-1 ${AXIS_SCROLL_MAX_H_CLASS}`}>
-        {mode === "relative" ? (
-          <>
-            {AXES_META.map((ax, idx) => {
-              const a = axes[idx];
-              const needsStrength = a.winner === 1 || a.winner === 2;
-              const isTie = a.winner === 0;
+        {/* Panels */}
+        <div
+          className={`space-y-2 overflow-y-auto pr-1 ${AXIS_SCROLL_MAX_H_CLASS}`}
+        >
+          {mode === "relative" ? (
+            <>
+              {/* 8 axes */}
+              {AXES_META.map((ax, idx) => {
+                const a = axes[idx];
+                const needsStrength = a.winner === 1 || a.winner === 2;
+                const isTie = a.winner === 0;
 
-              return (
-                <div
-                  key={ax.label}
-                  className={`border rounded-lg px-3 py-2 ${
-                    isAxisComplete(a)
-                      ? "bg-green-50 border-green-400"
-                      : "bg-gray-50 border-gray-200"
-                  }`}
-                >
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="font-medium text-[13px]">{ax.label}</div>
-
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-3 relative z-10">
-                        <WinnerButtons idx={idx} winner={a.winner} />
-                        {needsStrength && <Likert idx={idx} strength={a.strength} />}
-                        {isTie && (
-                          <TieQuality idx={idx} tieQuality={a.tieQuality} />
-                        )}
+                return (
+                  <div
+                    key={ax.label}
+                    className={`border rounded-lg px-3 py-2 ${
+                      isAxisComplete(a)
+                        ? "bg-green-50 border-green-400"
+                        : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div className="font-medium text-[13px]">
+                        {ax.label}
                       </div>
 
-                      <div className="text-[11px] text-gray-500 pointer-events-none">
-                        {needsStrength
-                          ? "How much better is the chosen translation?"
-                          : isTie
-                          ? "If Tie, specify if both translations are bad, good, or excellent."
-                          : "Pick which translation you think is better."}
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-3 relative z-10">
+                          <WinnerButtons idx={idx} winner={a.winner} />
+                          {needsStrength && (
+                            <Likert idx={idx} strength={a.strength} />
+                          )}
+                          {isTie && (
+                            <TieQuality
+                              idx={idx}
+                              tieQuality={a.tieQuality}
+                            />
+                          )}
+                        </div>
+
+                        <div className="text-[11px] text-gray-500 pointer-events-none">
+                          {needsStrength
+                            ? "How much better is the chosen translation?"
+                            : isTie
+                            ? "If Tie, specify quality."
+                            : "Select which translation is better."}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
-            {/* Relative overall */}
-            <div
-              className={`border rounded-lg px-3 py-2 ${
-                isRelativeComplete(relativeOverall)
-                  ? "bg-green-50 border-green-400"
-                  : "bg-gray-50 border-gray-200"
-              }`}
-            >
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <div className="font-medium text-[13px]">9. Relative overall grade</div>
-                  <div className="text-[11px] text-gray-500 mt-1">
-                    Which translation is better overall?
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="inline-flex rounded-md border overflow-hidden text-[11px]">
-                    {[1, 2, 0].map((val, i) => (
-                      <button
-                        key={val}
-                        onClick={() =>
-                          setRelativeOverall((prev) => ({
-                            winner: val,
-                            strength: val === 0 ? null : prev.strength,
-                            tieQuality: val === 0 ? prev.tieQuality : null,
-                          }))
-                        }
-                        className={[
-                          "px-2 py-0.5",
-                          i < 2 ? "border-r" : "",
-                          relativeOverall.winner === val
-                            ? "bg-black text-white"
-                            : "bg-white hover:bg-gray-100",
-                        ].join(" ")}
-                      >
-                        {val === 1
-                          ? "Translation 1"
-                          : val === 2
-                          ? "Translation 2"
-                          : "Tie"}
-                      </button>
-                    ))}
+              {/* Relative overall */}
+              <div
+                className={`border rounded-lg px-3 py-2 ${
+                  isRelativeComplete(relativeOverall)
+                    ? "bg-green-50 border-green-400"
+                    : "bg-gray-50 border-gray-200"
+                }`}
+              >
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <div className="font-medium text-[13px]">
+                      9. Relative overall grade
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1">
+                      Which translation is better overall?
+                    </div>
                   </div>
 
-                  {relativeOverall.winner === 1 ||
-                  relativeOverall.winner === 2 ? (
-                    <NumericLikert
-                      value={relativeOverall.strength}
-                      onChange={(v) =>
-                        setRelativeOverall((prev) => ({ ...prev, strength: v }))
-                      }
-                    />
-                  ) : null}
-
-                  {relativeOverall.winner === 0 ? (
-                    <div className="flex gap-1 text-[10px] ml-2">
-                      {["bad", "good", "excellent"].map((val) => (
+                  <div className="flex items-center gap-3">
+                    <div className="inline-flex rounded-md border overflow-hidden text-[11px]">
+                      {[1, 2, 0].map((val, i) => (
                         <button
                           key={val}
                           type="button"
                           onClick={() =>
                             setRelativeOverall((prev) => ({
-                              ...prev,
-                              tieQuality: val,
+                              winner: val,
+                              strength:
+                                val === 0 ? null : prev.strength,
+                              tieQuality:
+                                val === 0 ? prev.tieQuality : null,
                             }))
                           }
                           className={[
-                            "px-2 py-0.5 rounded border",
-                            relativeOverall.tieQuality === val
-                              ? "bg-gray-800 text-white"
-                              : "bg-white",
+                            "px-2 py-0.5",
+                            i < 2 ? "border-r" : "",
+                            relativeOverall.winner === val
+                              ? "bg-black text-white"
+                              : "bg-white hover:bg-gray-100",
                           ].join(" ")}
                         >
-                          {`both translations are ${val}`}
+                          {val === 1
+                            ? "Translation 1"
+                            : val === 2
+                            ? "Translation 2"
+                            : "Tie"}
                         </button>
                       ))}
                     </div>
-                  ) : null}
+
+                    {(relativeOverall.winner === 1 ||
+                      relativeOverall.winner === 2) && (
+                      <NumericLikert
+                        value={relativeOverall.strength}
+                        onChange={(v) =>
+                          setRelativeOverall((prev) => ({
+                            ...prev,
+                            strength: v,
+                          }))
+                        }
+                      />
+                    )}
+
+                    {relativeOverall.winner === 0 && (
+                      <div className="flex gap-1 text-[10px] ml-2">
+                        {["bad", "good", "excellent"].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() =>
+                              setRelativeOverall((prev) => ({
+                                ...prev,
+                                tieQuality: val,
+                              }))
+                            }
+                            className={[
+                              "px-2 py-0.5 rounded border",
+                              relativeOverall.tieQuality === val
+                                ? "bg-gray-800 text-white"
+                                : "bg-white",
+                            ].join(" ")}
+                          >
+                            {`both translations are ${val}`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </>
-        ) : (
-          // ABSOLUTE MODE
-          <div className="space-y-3">
-            <div className="font-semibold text-[13px]">
-              2. Absolute grading (overall quality)
-            </div>
-
-            {/* T1 */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <div className="font-medium text-[13px]">Rate Translation 1 overall</div>
-                <div className="text-[11px] text-gray-500">1 = poor, 5 = excellent</div>
+            </>
+          ) : (
+            // ABSOLUTE mode
+            <div className="space-y-3">
+              <div className="font-semibold text-[13px]">
+                2. Absolute grading (overall quality)
               </div>
 
-              <NumericLikert
-                value={absoluteOverall.t1}
-                onChange={(v) =>
-                  setAbsoluteOverall((prev) => ({ ...prev, t1: v }))
-                }
-              />
-            </div>
+              {/* T1 */}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <div className="font-medium text-[13px]">
+                    Rate Translation 1 overall
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    1 = poor, 5 = excellent
+                  </div>
+                </div>
 
-            {/* T2 */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <div className="font-medium text-[13px]">Rate Translation 2 overall</div>
-                <div className="text-[11px] text-gray-500">1 = poor, 5 = excellent</div>
+                <NumericLikert
+                  value={absoluteOverall.t1}
+                  onChange={(v) =>
+                    setAbsoluteOverall((prev) => ({ ...prev, t1: v }))
+                  }
+                />
               </div>
 
-              <NumericLikert
-                value={absoluteOverall.t2}
-                onChange={(v) =>
-                  setAbsoluteOverall((prev) => ({ ...prev, t2: v }))
-                }
-              />
+              {/* T2 */}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <div className="font-medium text-[13px]">
+                    Rate Translation 2 overall
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    1 = poor, 5 = excellent
+                  </div>
+                </div>
+
+                <NumericLikert
+                  value={absoluteOverall.t2}
+                  onChange={(v) =>
+                    setAbsoluteOverall((prev) => ({ ...prev, t2: v }))
+                  }
+                />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* Comments */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm">Extra Comments</div>
-        <input
-          type="text"
-          className="border rounded px-2 py-1 text-xs w-64"
-          value={comments}
-          placeholder="(optional)"
-          onChange={(e) => setComments(e.target.value)}
-        />
-      </div>
+        {/* Comments */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm">Extra Comments</div>
+          <input
+            type="text"
+            className="border rounded px-2 py-1 text-xs w-64"
+            value={comments}
+            placeholder="(optional)"
+            onChange={(e) => setComments(e.target.value)}
+          />
+        </div>
 
-      {err && <div className="text-red-700 text-sm">{err}</div>}
+        {err && <div className="text-red-700 text-sm">{err}</div>}
 
-      <button
-        type="submit"
-        disabled={!allComplete || saving}
-        className={`px-3 py-1.5 rounded font-semibold text-sm ${
-          !allComplete || saving
-            ? "bg-gray-300 text-gray-600"
-            : "bg-black text-white"
-        }`}
-      >
-        {saving ? "Submitting…" : savedOnce ? "Resubmit" : "Submit"}
-      </button>
-    </form>
+        {/* Submit button ALWAYS clickable */}
+        <button
+          type="submit"
+          className={`px-3 py-1.5 rounded font-semibold text-sm transition ${
+            allComplete && !saving
+              ? "bg-black text-white"
+              : "bg-gray-300 text-gray-700"
+          }`}
+        >
+          {saving ? "Submitting…" : savedOnce ? "Resubmit" : "Submit"}
+        </button>
+      </form>
+    </>
   );
 }
