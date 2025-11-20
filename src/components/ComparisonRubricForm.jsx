@@ -116,6 +116,7 @@ export default function ComparisonRubricForm({
     })();
   }, [comparison, rater]);
 
+
   const setAxisWinner = (idx, winner) =>
     setAxes((old) =>
       old.map((a, i) =>
@@ -247,6 +248,7 @@ export default function ComparisonRubricForm({
     }
   };
 
+
   const WinnerButtons = ({ idx, winner }) => (
     <div className="inline-flex rounded-md border overflow-hidden text-[11px]">
       {[1, 2, 0].map((val, i) => (
@@ -324,6 +326,7 @@ export default function ComparisonRubricForm({
       ))}
     </div>
   );
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
@@ -461,10 +464,13 @@ export default function ComparisonRubricForm({
                 </div>
 
                 <div className="flex items-center gap-3">
+
+                  {/* WINNER BUTTONS — FIXED WITH type="button" */}
                   <div className="inline-flex rounded-md border overflow-hidden text-[11px]">
                     {[1, 2, 0].map((val, i) => (
                       <button
                         key={val}
+                        type="button"
                         onClick={() =>
                           setRelativeOverall((prev) => ({
                             winner: val,
@@ -480,11 +486,7 @@ export default function ComparisonRubricForm({
                             : "bg-white hover:bg-gray-100",
                         ].join(" ")}
                       >
-                        {val === 1
-                          ? "Translation 1"
-                          : val === 2
-                          ? "Translation 2"
-                          : "Tie"}
+                        {val === 1 ? "Translation 1" : val === 2 ? "Translation 2" : "Tie"}
                       </button>
                     ))}
                   </div>
@@ -501,6 +503,8 @@ export default function ComparisonRubricForm({
 
                   {relativeOverall.winner === 0 ? (
                     <div className="flex gap-1 text-[10px] ml-2">
+
+                      {/* TIE QUALITY BUTTONS — FIXED WITH type="button" */}
                       {["bad", "good", "excellent"].map((val) => (
                         <button
                           key={val}
