@@ -1,5 +1,5 @@
 // src/components/ComparisonRubricForm.jsx
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const AXIS_SCROLL_MAX_H_CLASS = "max-h-[12rem]";
 
@@ -11,8 +11,6 @@ export default function ComparisonRubricForm({
   urdu1,
   urdu2,
 }) {
-  const scrollRef = useRef(null); // NEW — for scroll-to-first-missing
-
   const [axes, setAxes] = useState(() =>
     Array.from({ length: 8 }).map(() => ({
       winner: null,
@@ -37,17 +35,20 @@ export default function ComparisonRubricForm({
   const [savedOnce, setSavedOnce] = useState(false);
   const [err, setErr] = useState("");
 
+  // NEW — missing modal
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [missingList, setMissingList] = useState([]);
 
-  const [mode, setMode] = useState("relative");
-
-  // Auto-close modal
+  // Auto-close modal after 10 seconds
   useEffect(() => {
     if (!showMissingModal) return;
-    const t = setTimeout(() => setShowMissingModal(false), 10000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => {
+      setShowMissingModal(false);
+    }, 10000);
+    return () => clearTimeout(timer);
   }, [showMissingModal]);
+
+  const [mode, setMode] = useState("relative");
 
   const AXES_META = useMemo(
     () => [
@@ -63,7 +64,7 @@ export default function ComparisonRubricForm({
     []
   );
 
-  // Load saved data
+  // Load saved ratings
   useEffect(() => {
     (async () => {
       try {
@@ -73,7 +74,6 @@ export default function ComparisonRubricForm({
         });
         const res = await fetch(`/api/comparison-ratings/get?${qs}`);
         if (!res.ok) return;
-
         const j = await res.json();
         if (!j.exists) return;
 
@@ -116,7 +116,6 @@ export default function ComparisonRubricForm({
     })();
   }, [comparison, rater]);
 
-  // Helpers
   const setAxisWinner = (idx, winner) =>
     setAxes((old) =>
       old.map((a, i) =>
@@ -131,27 +130,21 @@ export default function ComparisonRubricForm({
     );
 
   const setAxisStrength = (idx, s) =>
-    setAxes((old) =>
-      old.map((a, i) => (i === idx ? { ...a, strength: s } : a))
-    );
+    setAxes((old) => old.map((a, i) => (i === idx ? { ...a, strength: s } : a)));
 
   const setAxisTieQuality = (idx, t) =>
-    setAxes((old) =>
-      old.map((a, i) => (i === idx ? { ...a, tieQuality: t } : a))
-    );
+    setAxes((old) => old.map((a, i) => (i === idx ? { ...a, tieQuality: t } : a)));
 
   const isAxisComplete = (a) => {
     if (a.winner == null) return false;
-    if (a.winner === 1 || a.winner === 2)
-      return a.strength >= 1 && a.strength <= 5;
+    if (a.winner === 1 || a.winner === 2) return a.strength >= 1 && a.strength <= 5;
     if (a.winner === 0) return !!a.tieQuality;
     return false;
   };
 
   const isRelativeComplete = (ro) => {
     if (ro.winner == null) return false;
-    if (ro.winner === 1 || ro.winner === 2)
-      return ro.strength >= 1 && ro.strength <= 5;
+    if (ro.winner === 1 || ro.winner === 2) return ro.strength >= 1 && ro.strength <= 5;
     if (ro.winner === 0) return !!ro.tieQuality;
     return false;
   };
@@ -159,12 +152,7 @@ export default function ComparisonRubricForm({
   const isAbsoluteComplete = (ab) =>
     ab.t1 >= 1 && ab.t1 <= 5 && ab.t2 >= 1 && ab.t2 <= 5;
 
-  // NEW — Track if absolute is incomplete
-  const absoluteIncomplete =
-    !(absoluteOverall.t1 >= 1 && absoluteOverall.t1 <= 5) ||
-    !(absoluteOverall.t2 >= 1 && absoluteOverall.t2 <= 5);
-
-  // Build missing list
+  // Build missing checklist
   const computeMissing = () => {
     const missing = [];
 
@@ -175,6 +163,7 @@ export default function ComparisonRubricForm({
     if (!isRelativeComplete(relativeOverall))
       missing.push("Relative overall grade incomplete");
 
+    // 🔴 UPDATED — add prefix for absolute items
     if (!(absoluteOverall.t1 >= 1 && absoluteOverall.t1 <= 5))
       missing.push("Absolute Grading Tab: Rate Translation 1 (1–5)");
 
@@ -184,10 +173,13 @@ export default function ComparisonRubricForm({
     return missing;
   };
 
-  const allComplete =
-    axes.every(isAxisComplete) &&
-    isRelativeComplete(relativeOverall) &&
-    isAbsoluteComplete(absoluteOverall);
+  const allComplete = useMemo(() => {
+    return (
+      axes.every(isAxisComplete) &&
+      isRelativeComplete(relativeOverall) &&
+      isAbsoluteComplete(absoluteOverall)
+    );
+  }, [axes, relativeOverall, absoluteOverall]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -197,32 +189,11 @@ export default function ComparisonRubricForm({
       const missing = computeMissing();
       setMissingList(missing);
       setShowMissingModal(true);
-
-      // NEW: if missing absolute → auto-switch tab
-      const hasAbsoluteMissing = missing.some((m) =>
-        m.startsWith("Absolute Grading Tab")
-      );
-      if (hasAbsoluteMissing) {
-        setMode("absolute");
-      } else {
-        // scroll inside relative tab
-        const idx = missing.findIndex((m) => m.startsWith("Axis"));
-        if (idx !== -1 && scrollRef.current) {
-          const axisNumber = parseInt(missing[idx].match(/\d+/)[0], 10);
-          const panel = scrollRef.current.querySelector(
-            `[data-axis="${axisNumber}"]`
-          );
-          if (panel) {
-            panel.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-        }
-      }
-
       return;
     }
 
-    // Normal submit
     setSaving(true);
+
     try {
       const axesPayload = {};
       axes.forEach((a, i) => {
@@ -234,8 +205,9 @@ export default function ComparisonRubricForm({
       });
 
       let durationSeconds = null;
-      if (typeof startedAtMs === "number")
+      if (typeof startedAtMs === "number") {
         durationSeconds = (Date.now() - startedAtMs) / 1000;
+      }
 
       const body = {
         rater,
@@ -246,14 +218,8 @@ export default function ComparisonRubricForm({
         durationSeconds,
         relativeOverall: {
           winner: relativeOverall.winner,
-          strength:
-            relativeOverall.winner === 0
-              ? null
-              : relativeOverall.strength,
-          tieQuality:
-            relativeOverall.winner === 0
-              ? relativeOverall.tieQuality
-              : null,
+          strength: relativeOverall.winner === 0 ? null : relativeOverall.strength,
+          tieQuality: relativeOverall.winner === 0 ? relativeOverall.tieQuality : null,
         },
         absoluteOverall: {
           translation1: absoluteOverall.t1,
@@ -279,7 +245,6 @@ export default function ComparisonRubricForm({
     }
   };
 
-  // UI button components
   const WinnerButtons = ({ idx, winner }) => (
     <div className="inline-flex rounded-md border overflow-hidden text-[11px]">
       {[1, 2, 0].map((val, i) => (
@@ -361,82 +326,68 @@ export default function ComparisonRubricForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
 
-      {/* Missing Modal */}
-      {showMissingModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-red-600 text-white rounded-xl p-5 w-96 shadow-2xl border border-red-800">
-            <div className="font-semibold text-lg mb-2">Missing Fields</div>
+{/* Missing Modal (RED) */}
+{showMissingModal && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-red-600 text-white rounded-xl p-5 w-96 shadow-2xl border border-red-800">
+      <div className="font-semibold text-lg mb-2">Missing Fields</div>
 
-            {missingList.length === 0 ? (
-              <div className="text-sm">Everything is complete.</div>
-            ) : (
-              <ul className="list-disc ml-5 space-y-1 text-sm">
-                {missingList.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            )}
-
-            <div className="mt-4 flex justify-start">
-              <button
-                className="px-4 py-1.5 bg-black text-white rounded hover:bg-gray-900"
-                onClick={() => setShowMissingModal(false)}
-                type="button"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="text-xs mt-2 text-red-200">
-              This message will close automatically in 10 seconds.
-            </div>
-          </div>
-        </div>
+      {missingList.length === 0 ? (
+        <div className="text-sm">Everything is complete.</div>
+      ) : (
+        <ul className="list-disc ml-5 space-y-1 text-sm">
+          {missingList.map((m, i) => (
+            <li key={i}>{m}</li>
+          ))}
+        </ul>
       )}
+
+      <div className="mt-4 flex justify-start">
+        <button
+          className="px-4 py-1.5 bg-black text-white rounded hover:bg-gray-900"
+          onClick={() => setShowMissingModal(false)}
+          type="button"
+        >
+          Close
+        </button>
+      </div>
+
+      <div className="text-xs mt-2 text-red-200">
+        This message will close automatically in 10 seconds.
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="font-semibold text-sm">
-          Rating Rubric –{" "}
-          <span className="font-normal">(Translation 1 vs 2 or Tie)</span>
+          Rating Rubric – <span className="font-normal">(Translation 1 vs 2 or Tie)</span>
         </div>
 
         <div className="inline-flex rounded-md border overflow-hidden text-xs">
-
-          {/* RELATIVE TAB */}
           <button
             type="button"
             onClick={() => setMode("relative")}
             className={[
               "px-3 py-1",
-              mode === "relative"
-                ? "bg-black text-white"
-                : "bg-white hover:bg-gray-100",
+              mode === "relative" ? "bg-black text-white" : "bg-white hover:bg-gray-100",
             ].join(" ")}
           >
             Relative Grading
           </button>
 
-          {/* ABSOLUTE TAB (with red border when incomplete) */}
           <button
             type="button"
             onClick={() => {
-              if (
-                axes.every(isAxisComplete) &&
-                isRelativeComplete(relativeOverall)
-              ) {
+              if (axes.every(isAxisComplete) && isRelativeComplete(relativeOverall)) {
                 setMode("absolute");
               }
             }}
-            disabled={
-              !axes.every(isAxisComplete) ||
-              !isRelativeComplete(relativeOverall)
-            }
+            disabled={!axes.every(isAxisComplete) || !isRelativeComplete(relativeOverall)}
             className={[
               "px-3 py-1 border-l",
-              absoluteIncomplete ? "border-red-500" : "",
-              axes.every(isAxisComplete) &&
-              isRelativeComplete(relativeOverall)
+              axes.every(isAxisComplete) && isRelativeComplete(relativeOverall)
                 ? mode === "absolute"
                   ? "bg-black text-white"
                   : "bg-white hover:bg-gray-100"
@@ -449,10 +400,7 @@ export default function ComparisonRubricForm({
       </div>
 
       {/* Panels */}
-      <div
-        ref={scrollRef}
-        className={`space-y-2 overflow-y-auto pr-1 ${AXIS_SCROLL_MAX_H_CLASS}`}
-      >
+      <div className={`space-y-2 overflow-y-auto pr-1 ${AXIS_SCROLL_MAX_H_CLASS}`}>
         {mode === "relative" ? (
           <>
             {AXES_META.map((ax, idx) => {
@@ -463,7 +411,6 @@ export default function ComparisonRubricForm({
               return (
                 <div
                   key={ax.label}
-                  data-axis={idx + 1}
                   className={`border rounded-lg px-3 py-2 ${
                     isAxisComplete(a)
                       ? "bg-green-50 border-green-400"
@@ -471,22 +418,13 @@ export default function ComparisonRubricForm({
                   }`}
                 >
                   <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="font-medium text-[13px]">
-                      {ax.label}
-                    </div>
+                    <div className="font-medium text-[13px]">{ax.label}</div>
 
                     <div className="flex flex-col items-end gap-1">
                       <div className="flex items-center gap-3 relative z-10">
                         <WinnerButtons idx={idx} winner={a.winner} />
-                        {needsStrength && (
-                          <Likert idx={idx} strength={a.strength} />
-                        )}
-                        {isTie && (
-                          <TieQuality
-                            idx={idx}
-                            tieQuality={a.tieQuality}
-                          />
-                        )}
+                        {needsStrength && <Likert idx={idx} strength={a.strength} />}
+                        {isTie && <TieQuality idx={idx} tieQuality={a.tieQuality} />}
                       </div>
 
                       <div className="text-[11px] text-gray-500 pointer-events-none">
@@ -502,7 +440,7 @@ export default function ComparisonRubricForm({
               );
             })}
 
-            {/* Relative Overall */}
+            {/* Relative overall */}
             <div
               className={`border rounded-lg px-3 py-2 ${
                 isRelativeComplete(relativeOverall)
@@ -512,15 +450,14 @@ export default function ComparisonRubricForm({
             >
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <div className="font-medium text-[13px]">
-                    9. Relative overall grade
-                  </div>
+                  <div className="font-medium text-[13px]">9. Relative overall grade</div>
                   <div className="text-[11px] text-gray-500 mt-1">
                     Which translation is better overall?
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
+
                   <div className="inline-flex rounded-md border overflow-hidden text-[11px]">
                     {[1, 2, 0].map((val, i) => (
                       <button
@@ -529,10 +466,8 @@ export default function ComparisonRubricForm({
                         onClick={() =>
                           setRelativeOverall((prev) => ({
                             winner: val,
-                            strength:
-                              val === 0 ? null : prev.strength,
-                            tieQuality:
-                              val === 0 ? prev.tieQuality : null,
+                            strength: val === 0 ? null : prev.strength,
+                            tieQuality: val === 0 ? prev.tieQuality : null,
                           }))
                         }
                         className={[
@@ -543,11 +478,7 @@ export default function ComparisonRubricForm({
                             : "bg-white hover:bg-gray-100",
                         ].join(" ")}
                       >
-                        {val === 1
-                          ? "Translation 1"
-                          : val === 2
-                          ? "Translation 2"
-                          : "Tie"}
+                        {val === 1 ? "Translation 1" : val === 2 ? "Translation 2" : "Tie"}
                       </button>
                     ))}
                   </div>
@@ -557,10 +488,7 @@ export default function ComparisonRubricForm({
                     <NumericLikert
                       value={relativeOverall.strength}
                       onChange={(v) =>
-                        setRelativeOverall((prev) => ({
-                          ...prev,
-                          strength: v,
-                        }))
+                        setRelativeOverall((prev) => ({ ...prev, strength: v }))
                       }
                     />
                   ) : null}
@@ -594,7 +522,7 @@ export default function ComparisonRubricForm({
             </div>
           </>
         ) : (
-          // ABSOLUTE SECTION
+          // ABSOLUTE MODE
           <div className="space-y-3">
             <div className="font-semibold text-[13px]">
               2. Absolute grading (overall quality)
@@ -603,12 +531,8 @@ export default function ComparisonRubricForm({
             {/* T1 */}
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <div className="font-medium text-[13px]">
-                  Rate Translation 1 overall
-                </div>
-                <div className="text-[11px] text-gray-500">
-                  1 = poor, 5 = excellent
-                </div>
+                <div className="font-medium text-[13px]">Rate Translation 1 overall</div>
+                <div className="text-[11px] text-gray-500">1 = poor, 5 = excellent</div>
               </div>
 
               <NumericLikert
@@ -622,12 +546,8 @@ export default function ComparisonRubricForm({
             {/* T2 */}
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <div className="font-medium text-[13px]">
-                  Rate Translation 2 overall
-                </div>
-                <div className="text-[11px] text-gray-500">
-                  1 = poor, 5 = excellent
-                </div>
+                <div className="font-medium text-[13px]">Rate Translation 2 overall</div>
+                <div className="text-[11px] text-gray-500">1 = poor, 5 = excellent</div>
               </div>
 
               <NumericLikert
@@ -658,9 +578,7 @@ export default function ComparisonRubricForm({
       <button
         type="submit"
         className={`px-3 py-1.5 rounded font-semibold text-sm ${
-          allComplete
-            ? "bg-black text-white"
-            : "bg-gray-300 text-gray-600"
+          allComplete ? "bg-black text-white" : "bg-gray-300 text-gray-600"
         }`}
         disabled={saving}
       >
