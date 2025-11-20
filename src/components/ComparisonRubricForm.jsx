@@ -116,7 +116,6 @@ export default function ComparisonRubricForm({
     })();
   }, [comparison, rater]);
 
-
   const setAxisWinner = (idx, winner) =>
     setAxes((old) =>
       old.map((a, i) =>
@@ -164,11 +163,12 @@ export default function ComparisonRubricForm({
     if (!isRelativeComplete(relativeOverall))
       missing.push("Relative overall grade incomplete");
 
+    // 🔴 UPDATED — add prefix for absolute items
     if (!(absoluteOverall.t1 >= 1 && absoluteOverall.t1 <= 5))
-      missing.push("Rate Translation 1 (1–5)");
+      missing.push("Absolute Grading Tab: Rate Translation 1 (1–5)");
 
     if (!(absoluteOverall.t2 >= 1 && absoluteOverall.t2 <= 5))
-      missing.push("Rate Translation 2 (1–5)");
+      missing.push("Absolute Grading Tab: Rate Translation 2 (1–5)");
 
     return missing;
   };
@@ -181,7 +181,6 @@ export default function ComparisonRubricForm({
     );
   }, [axes, relativeOverall, absoluteOverall]);
 
-  // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErr("");
@@ -219,10 +218,8 @@ export default function ComparisonRubricForm({
         durationSeconds,
         relativeOverall: {
           winner: relativeOverall.winner,
-          strength:
-            relativeOverall.winner === 0 ? null : relativeOverall.strength,
-          tieQuality:
-            relativeOverall.winner === 0 ? relativeOverall.tieQuality : null,
+          strength: relativeOverall.winner === 0 ? null : relativeOverall.strength,
+          tieQuality: relativeOverall.winner === 0 ? relativeOverall.tieQuality : null,
         },
         absoluteOverall: {
           translation1: absoluteOverall.t1,
@@ -247,7 +244,6 @@ export default function ComparisonRubricForm({
       setSaving(false);
     }
   };
-
 
   const WinnerButtons = ({ idx, winner }) => (
     <div className="inline-flex rounded-md border overflow-hidden text-[11px]">
@@ -327,7 +323,6 @@ export default function ComparisonRubricForm({
     </div>
   );
 
-
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
 
@@ -347,7 +342,6 @@ export default function ComparisonRubricForm({
         </ul>
       )}
 
-      {/* Close button aligned LEFT */}
       <div className="mt-4 flex justify-start">
         <button
           className="px-4 py-1.5 bg-black text-white rounded hover:bg-gray-900"
@@ -365,8 +359,7 @@ export default function ComparisonRubricForm({
   </div>
 )}
 
-
-      {/* Header + mode toggle */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="font-semibold text-sm">
           Rating Rubric – <span className="font-normal">(Translation 1 vs 2 or Tie)</span>
@@ -465,7 +458,6 @@ export default function ComparisonRubricForm({
 
                 <div className="flex items-center gap-3">
 
-                  {/* WINNER BUTTONS — FIXED WITH type="button" */}
                   <div className="inline-flex rounded-md border overflow-hidden text-[11px]">
                     {[1, 2, 0].map((val, i) => (
                       <button
@@ -503,8 +495,6 @@ export default function ComparisonRubricForm({
 
                   {relativeOverall.winner === 0 ? (
                     <div className="flex gap-1 text-[10px] ml-2">
-
-                      {/* TIE QUALITY BUTTONS — FIXED WITH type="button" */}
                       {["bad", "good", "excellent"].map((val) => (
                         <button
                           key={val}
