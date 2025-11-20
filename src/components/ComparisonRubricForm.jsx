@@ -328,38 +328,40 @@ export default function ComparisonRubricForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
 
-      {/* Missing Modal (RED) */}
-      {showMissingModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-red-600 text-white rounded-xl p-5 w-96 shadow-2xl border border-red-800">
-            <div className="font-semibold text-lg mb-2">Missing Fields</div>
+{/* Missing Modal (RED) */}
+{showMissingModal && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-red-600 text-white rounded-xl p-5 w-96 shadow-2xl border border-red-800">
+      <div className="font-semibold text-lg mb-2">Missing Fields</div>
 
-            {missingList.length === 0 ? (
-              <div className="text-sm">Everything is complete.</div>
-            ) : (
-              <ul className="list-disc ml-5 space-y-1 text-sm">
-                {missingList.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            )}
-
-            <div className="mt-4 flex justify-end">
-              <button
-                className="px-4 py-1.5 bg-black text-white rounded hover:bg-gray-900"
-                onClick={() => setShowMissingModal(false)}
-                type="button"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="text-xs mt-2 text-red-200">
-              This message will close automatically in 10 seconds.
-            </div>
-          </div>
-        </div>
+      {missingList.length === 0 ? (
+        <div className="text-sm">Everything is complete.</div>
+      ) : (
+        <ul className="list-disc ml-5 space-y-1 text-sm">
+          {missingList.map((m, i) => (
+            <li key={i}>{m}</li>
+          ))}
+        </ul>
       )}
+
+      {/* Close button aligned LEFT */}
+      <div className="mt-4 flex justify-start">
+        <button
+          className="px-4 py-1.5 bg-black text-white rounded hover:bg-gray-900"
+          onClick={() => setShowMissingModal(false)}
+          type="button"
+        >
+          Close
+        </button>
+      </div>
+
+      <div className="text-xs mt-2 text-red-200">
+        This message will close automatically in 10 seconds.
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Header + mode toggle */}
       <div className="flex items-center justify-between">
