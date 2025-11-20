@@ -1,11 +1,11 @@
 // server/index.js
+
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 
 const ComparisonRating = require("./models/ComparisonRating");
-const NoteCounter = require("./models/NoteCounter");
 
 const MONGO_URI =
   process.env.MONGODB_URI || "mongodb://localhost:27017/clinical";
@@ -27,7 +27,7 @@ app.get("/api/health", (_req, res) =>
   res.json({ ok: true, via: "render-web", ts: Date.now() })
 );
 
-/** ----------------- COMPARISON RATINGS (PER CASE) ----------------- */
+/** ----------------- COMPARISON RATINGS ----------------- **/
 
 app.post("/api/comparison-ratings", async (req, res) => {
   try {
@@ -45,10 +45,11 @@ app.post("/api/comparison-ratings", async (req, res) => {
     } = req.body || {};
 
     if (!rater || !comparison || !axes) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({ error: "Missing rater, comparison, or axes." });
     }
 
-    const requiredAxes = [
+    // Validate axes
+    const required = [
       "axis1",
       "axis2",
       "axis3",
@@ -59,30 +60,23 @@ app.post("/api/comparison-ratings", async (req, res) => {
       "axis8",
     ];
 
-    for (const ax of requiredAxes) {
+    for (const ax of required) {
       const a = axes[ax];
       if (!a || typeof a.winner !== "number") {
-        return res
-          .status(400)
-          .json({ error: `Axis ${ax} must have a winner` });
+        return res.status(400).json({ error: `Missing winner for ${ax}` });
       }
       if (![0, 1, 2].includes(a.winner)) {
-        return res
-          .status(400)
-          .json({ error: `Axis ${ax} winner must be 0,1,2` });
+        return res.status(400).json({ error: `${ax} winner must be 0/1/2` });
       }
-      if (
-        a.winner !== 0 &&
-        (a.strength == null || a.strength < 1 || a.strength > 5)
-      ) {
-        return res.status(400).json({
-          error: `Axis ${ax} strength must be 1–5 when winner is 1 or 2`,
-        });
+      if (a.winner !== 0) {
+        if (a.strength == null || a.strength < 1 || a.strength > 5) {
+          return res.status(400).json({
+            error: `${ax} strength must be 1–5 when winner is not Tie.`,
+          });
+        }
       }
-      // tieQuality is optional when winner === 0; no extra validation needed
     }
 
-    // sanitize duration (optional)
     let dur = null;
     if (typeof durationSeconds === "number" && durationSeconds >= 0) {
       dur = Math.round(durationSeconds);
@@ -95,12 +89,8 @@ app.post("/api/comparison-ratings", async (req, res) => {
         axes,
         comments: comments || "",
         durationSeconds: dur,
-
-        // store relative + absolute overall (optional)
         relativeOverall: relativeOverall || null,
         absoluteOverall: absoluteOverall || null,
-
-        // which concrete outputs were shown as Urdu 1 / Urdu 2
         urdu1: urdu1 || "",
         urdu2: urdu2 || "",
       },
@@ -113,7 +103,7 @@ app.post("/api/comparison-ratings", async (req, res) => {
       lean: true,
     });
 
-    return res.status(200).json({ ok: true, id: doc._id });
+    res.json({ ok: true, id: doc._id });
   } catch (e) {
     console.error("POST /api/comparison-ratings error:", e);
     res.status(500).json({ error: "Server error" });
@@ -129,6 +119,7 @@ app.get("/api/comparison-ratings/get", async (req, res) => {
       comparison: String(comparison),
       rater,
     }).lean();
+
     if (!doc) return res.json({ exists: false });
 
     res.json({
@@ -147,148 +138,19 @@ app.get("/api/comparison-ratings/get", async (req, res) => {
   }
 });
 
-/** ----------------- NOTE COUNTER (GO TO NOTE CLICKS) ----------------- */
+/** ----------------- Serve web app ----------------- **/
 
-app.post("/api/note-counter/increment", async (req, res) => {
-  try {
-    const { rater, comparison, which } = req.body || {};
-    if (
-      !rater ||
-      !comparison ||
-      !["english", "urdu1", "urdu2"].includes(which)
-    ) {
-      return res.status(400).json({ error: "Missing or invalid fields" });
-    }
+app.get("/", (_req, res) => res.redirect("/login"));
 
-    const fieldMap = {
-      english: "englishNote",
-      urdu1: "urdu1Note",
-      urdu2: "urdu2Note",
-    };
-    const field = fieldMap[which];
+const DIST = path.join(__dirname, "..", "dist");
+app.use(express.static(DIST));
 
-    const doc = await NoteCounter.findOneAndUpdate(
-      { rater, comparison: String(comparison) },
-      { $inc: { [field]: 1 } },
-      { upsert: true, new: true, lean: true }
-    );
-
-    res.json({ ok: true, counter: doc });
-  } catch (e) {
-    console.error("POST /api/note-counter/increment error:", e);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-/** --------- NEW: preference/score change counters (incremental) --------- */
-/**
- * Expects deltas since page load to increment server totals without race
- * {
- *   rater, comparison,
- *   axisWinnerChanges: [n0..n7],            // optional
- *   relativeOverallChanges: Number,         // optional
- *   absoluteT1Changes: Number,              // optional
- *   absoluteT2Changes: Number               // optional
- * }
- */
-app.post("/api/note-counter/changes", async (req, res) => {
-  try {
-    const {
-      rater,
-      comparison,
-      axisWinnerChanges,
-      relativeOverallChanges,
-      absoluteT1Changes,
-      absoluteT2Changes,
-    } = req.body || {};
-
-    if (!rater || !comparison) {
-      return res.status(400).json({ error: "Missing rater or comparison" });
-    }
-
-    const inc = {};
-
-    // Per-axis increments: build $inc for each index present
-    if (Array.isArray(axisWinnerChanges)) {
-      axisWinnerChanges.forEach((val, idx) => {
-        const n = Number(val) || 0;
-        if (n !== 0 && idx >= 0 && idx < 8) {
-          inc[`axisWinnerChanges.${idx}`] = n;
-        }
-      });
-    }
-
-    if (typeof relativeOverallChanges === "number" && relativeOverallChanges !== 0) {
-      inc["relativeOverallChanges"] = relativeOverallChanges;
-    }
-
-    if (typeof absoluteT1Changes === "number" && absoluteT1Changes !== 0) {
-      inc["absoluteT1Changes"] = absoluteT1Changes;
-    }
-    if (typeof absoluteT2Changes === "number" && absoluteT2Changes !== 0) {
-      inc["absoluteT2Changes"] = absoluteT2Changes;
-    }
-
-    const update = Object.keys(inc).length ? { $inc: inc } : { $setOnInsert: {} };
-
-    const doc = await NoteCounter.findOneAndUpdate(
-      { rater, comparison: String(comparison) },
-      update,
-      { upsert: true, new: true, lean: true }
-    );
-
-    res.json({ ok: true, counter: doc });
-  } catch (e) {
-    console.error("POST /api/note-counter/changes error:", e);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-/** ----------------- NOTE COUNTER FETCH (GET current clicks) ----------------- */
-app.get("/api/note-counter/get", async (req, res) => {
-  try {
-    const { rater, comparison } = req.query;
-    if (!rater || !comparison) return res.json({ exists: false });
-
-    const doc = await NoteCounter.findOne({
-      rater,
-      comparison: String(comparison),
-    }).lean();
-
-    if (!doc) return res.json({ exists: false });
-
-    res.json({
-      exists: true,
-      englishNote: doc.englishNote || 0,
-      urdu1Note: doc.urdu1Note || 0,
-      urdu2Note: doc.urdu2Note || 0,
-
-      // expose the change counters too
-      axisWinnerChanges: Array.isArray(doc.axisWinnerChanges)
-        ? doc.axisWinnerChanges
-        : Array.from({ length: 8 }).map(() => 0),
-      relativeOverallChanges: doc.relativeOverallChanges || 0,
-      absoluteT1Changes: doc.absoluteT1Changes || 0,
-      absoluteT2Changes: doc.absoluteT2Changes || 0,
-    });
-  } catch (e) {
-    console.error("GET /api/note-counter/get error:", e);
-    res.json({ exists: false });
-  }
-});
-
-/** ---------- Default route redirect to /login ---------- */
-app.get("/", (_req, res) => {
-  res.redirect("/login");
-});
-
-/** -------------- Serve SPA -------------- */
-const DIST_DIR = path.join(__dirname, "..", "dist");
-app.use(express.static(DIST_DIR));
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api/")) return next();
-  res.sendFile(path.join(DIST_DIR, "index.html"));
+  res.sendFile(path.join(DIST, "index.html"));
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`🚀 Server listening on ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on http://localhost:${PORT}`)
+);
