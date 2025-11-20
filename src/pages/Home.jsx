@@ -60,7 +60,7 @@ export default function Home() {
     })();
   }, [pairs, rater]);
 
-  // One item per comparison, sorted by comparison number
+  // One item per comparison
   const viewCases = useMemo(() => {
     return [...pairs]
       .sort((a, b) => Number(a.comparison) - Number(b.comparison))
@@ -70,27 +70,23 @@ export default function Home() {
       }));
   }, [pairs]);
 
-  // Determine which cases are locked/unlocked for this rater
+  // Determine locks
   const casesWithLock = useMemo(() => {
     return viewCases.map((c, idx, arr) => {
       const completed = !!completedMap[c.comparison];
 
-      // Admin override: unlock everything
+      // Admin override
       if (isAdmin && adminUnlocked) {
         return { ...c, completed, locked: false };
       }
 
-      // Case 1: always unlocked
+      // Case 1 always unlocked
       if (idx === 0) {
         return { ...c, completed, locked: false };
       }
 
-      // For case i (>0), unlock if:
-      //   - this case is completed, OR
-      //   - the *previous* case is completed
       const prev = arr[idx - 1];
       const prevCompleted = !!completedMap[prev.comparison];
-
       const unlocked = completed || prevCompleted;
 
       return {
@@ -100,6 +96,11 @@ export default function Home() {
       };
     });
   }, [viewCases, completedMap, isAdmin, adminUnlocked]);
+
+  // ---- PROGRESS BAR CALC ----
+  const TOTAL = 60; // Hard requirement
+  const completedCount = Object.keys(completedMap).length;
+  const percent = Math.min((completedCount / TOTAL) * 100, 100);
 
   return (
     <div className="max-w-5xl mx-auto py-6 space-y-4">
@@ -145,6 +146,22 @@ export default function Home() {
           >
             Logout
           </button>
+        </div>
+      </div>
+
+      {/* ---- PROGRESS BAR ---- */}
+      <div className="w-full mb-4">
+        <div className="flex justify-between items-center mb-1">
+          <span className="text-sm font-medium text-gray-700">
+            Progress: {completedCount} / {TOTAL}
+          </span>
+        </div>
+
+        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-black rounded-full transition-all duration-500"
+            style={{ width: `${percent}%` }}
+          ></div>
         </div>
       </div>
 
