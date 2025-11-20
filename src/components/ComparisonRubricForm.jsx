@@ -163,7 +163,6 @@ export default function ComparisonRubricForm({
     if (!isRelativeComplete(relativeOverall))
       missing.push("Relative overall grade incomplete");
 
-    // 🔴 UPDATED — add prefix for absolute items
     if (!(absoluteOverall.t1 >= 1 && absoluteOverall.t1 <= 5))
       missing.push("Absolute Grading Tab: Rate Translation 1 (1–5)");
 
@@ -218,8 +217,10 @@ export default function ComparisonRubricForm({
         durationSeconds,
         relativeOverall: {
           winner: relativeOverall.winner,
-          strength: relativeOverall.winner === 0 ? null : relativeOverall.strength,
-          tieQuality: relativeOverall.winner === 0 ? relativeOverall.tieQuality : null,
+          strength:
+            relativeOverall.winner === 0 ? null : relativeOverall.strength,
+          tieQuality:
+            relativeOverall.winner === 0 ? relativeOverall.tieQuality : null,
         },
         absoluteOverall: {
           translation1: absoluteOverall.t1,
@@ -440,18 +441,22 @@ export default function ComparisonRubricForm({
               );
             })}
 
-            {/* Relative overall */}
+            {/* ███ BLUE HIGHLIGHTED RELATIVE OVERALL BLOCK (Axis 9) ███ */}
             <div
-              className={`border rounded-lg px-3 py-2 ${
-                isRelativeComplete(relativeOverall)
-                  ? "bg-green-50 border-green-400"
-                  : "bg-gray-50 border-gray-200"
-              }`}
+              className={`border rounded-lg px-3 py-2
+                ${
+                  isRelativeComplete(relativeOverall)
+                    ? "bg-blue-50 border-blue-400"
+                    : "bg-blue-50 border-blue-300"
+                }
+              `}
             >
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <div className="font-medium text-[13px]">9. Relative overall grade</div>
-                  <div className="text-[11px] text-gray-500 mt-1">
+                  <div className="font-medium text-[13px] text-blue-800">
+                    9. Relative overall grade
+                  </div>
+                  <div className="text-[11px] text-blue-600 mt-1">
                     Which translation is better overall?
                   </div>
                 </div>
@@ -520,6 +525,8 @@ export default function ComparisonRubricForm({
                 </div>
               </div>
             </div>
+            {/* ████████████████████████████████████████████████████ */}
+
           </>
         ) : (
           // ABSOLUTE MODE
