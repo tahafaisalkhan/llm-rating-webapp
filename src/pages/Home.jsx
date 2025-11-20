@@ -104,50 +104,54 @@ export default function Home() {
 
   return (
     <div className="max-w-5xl mx-auto py-6 space-y-4">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-2">
-        <a
-          href="https://docs.google.com/document/d/1K4VkgNa3FkOeZHHu9qOCktq2-gLWPNbdogn_OsgoMp8/edit?usp=sharing"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm underline text-gray-600 hover:text-black"
-        >
-          Scoring Rubric
-        </a>
+{/* Top bar */}
+<div className="relative mb-2 flex items-center justify-between">
+  {/* Left */}
+  <a
+    href="https://docs.google.com/document/d/1K4VkgNa3FkOeZHHu9qOCktq2-gLWPNbdogn_OsgoMp8/edit?usp=sharing"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-sm underline text-gray-600 hover:text-black"
+  >
+    Scoring Rubric
+  </a>
 
-        <h1 className="text-3xl font-bold text-center flex-1 text-center">
-          LLM Rating Menu
-        </h1>
+  {/* CENTERED TITLE (always perfectly centered) */}
+  <h1 className="absolute left-1/2 -translate-x-1/2 text-3xl font-bold">
+    LLM Rating Menu
+  </h1>
 
-        <div className="flex items-center gap-3">
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => setAdminUnlocked((v) => !v)}
-              className={`text-xs px-3 py-1 rounded border font-semibold ${
-                adminUnlocked
-                  ? "bg-green-600 text-white border-green-700"
-                  : "bg-white text-gray-800 hover:bg-gray-100 border-gray-300"
-              }`}
-            >
-              {adminUnlocked ? "Relock cases" : "Unlock all cases"}
-            </button>
-          )}
+  {/* Right */}
+  <div className="flex items-center gap-3">
+    {isAdmin && (
+      <button
+        type="button"
+        onClick={() => setAdminUnlocked((v) => !v)}
+        className={`text-xs px-3 py-1 rounded border font-semibold ${
+          adminUnlocked
+            ? "bg-green-600 text-white border-green-700"
+            : "bg-white text-gray-800 hover:bg-gray-100 border-gray-300"
+        }`}
+      >
+        {adminUnlocked ? "Relock cases" : "Unlock all cases"}
+      </button>
+    )}
 
-          <span className="text-sm text-gray-600">
-            Signed in: <b>{rater}</b>
-          </span>
-          <button
-            className="text-sm underline text-gray-600 hover:text-black"
-            onClick={() => {
-              clearRater();
-              window.location.href = "/login";
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      </div>
+    <span className="text-sm text-gray-600">
+      Signed in: <b>{rater}</b>
+    </span>
+    <button
+      className="text-sm underline text-gray-600 hover:text-black"
+      onClick={() => {
+        clearRater();
+        window.location.href = "/login";
+      }}
+    >
+      Logout
+    </button>
+  </div>
+</div>
+
 
       {/* ---- PROGRESS BAR ---- */}
       <div className="w-full mb-4">
