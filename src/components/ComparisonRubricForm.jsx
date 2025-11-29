@@ -267,11 +267,11 @@ export default function ComparisonRubricForm({
 
   const Likert = ({ idx, strength }) => {
     const labels = [
-      "Barely better",
+      "Very slightly better",
       "Slightly better",
       "Moderately better",
-      "Much better",
-      "Clearly better",
+      "Significantly better",
+      "Extremely better",
     ];
     return (
       <div className="flex items-center gap-2 text-[11px] ml-2">
