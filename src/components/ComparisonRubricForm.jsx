@@ -35,10 +35,11 @@ export default function ComparisonRubricForm({
   const [savedOnce, setSavedOnce] = useState(false);
   const [err, setErr] = useState("");
 
+  // Missing modal
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [missingList, setMissingList] = useState([]);
 
-  // 🔵 GLOBAL TOOLTIP STATE
+  // 🔵 GLOBAL TOOLTIP STATE (for all axis labels)
   const [tooltip, setTooltip] = useState({
     visible: false,
     text: "",
@@ -175,7 +176,7 @@ export default function ComparisonRubricForm({
   const isAbsoluteComplete = (ab) =>
     ab.t1 >= 1 && ab.t1 <= 5 && ab.t2 >= 1 && ab.t2 <= 5;
 
-  // Missing items computation
+  // Missing list
   const computeMissing = () => {
     const missing = [];
 
@@ -203,33 +204,31 @@ export default function ComparisonRubricForm({
     [axes, relativeOverall, absoluteOverall]
   );
 
-  // -----------------------------
-  // ⭐️ IMPROVED TOOLTIP HANDLERS
-  // -----------------------------
+  // TOOLTIP HELPERS — GLOBAL, FIXED POSITIONED, RIGHT-SIDE, FADE
   const showTooltip = (event, text) => {
     if (!text) return;
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const tooltipWidth = 240; // approximate width
-    const margin = 12;
+    const margin = 8;
 
-    let x = rect.left + rect.width / 2;
+    // Position to the RIGHT of the label, vertically centered
+    let x = rect.right + margin;
+    let y = rect.top + rect.height / 2;
 
-    // Prevent overflow RIGHT
-    if (x + tooltipWidth / 2 > window.innerWidth - margin) {
-      x = window.innerWidth - tooltipWidth / 2 - margin;
-    }
+    // Clamp to viewport
+    const maxX = window.innerWidth - margin;
+    const minX = margin;
+    const maxY = window.innerHeight - margin;
+    const minY = margin;
 
-    // Prevent overflow LEFT
-    if (x - tooltipWidth / 2 < margin) {
-      x = tooltipWidth / 2 + margin;
-    }
+    x = Math.min(Math.max(x, minX), maxX);
+    y = Math.min(Math.max(y, minY), maxY);
 
     setTooltip({
       visible: true,
       text,
       x,
-      y: rect.top,
+      y,
     });
   };
 
@@ -237,9 +236,6 @@ export default function ComparisonRubricForm({
     setTooltip((prev) => ({ ...prev, visible: false }));
   };
 
-  // -----------------------------
-  // Rendering
-  // -----------------------------
   const Likert = ({ idx, strength }) => {
     const labels = [
       "Very slightly better",
@@ -396,20 +392,20 @@ export default function ComparisonRubricForm({
         </div>
       )}
 
-      {/* 🔵 GLOBAL TOOLTIP (always on top, never clipped) */}
-      {tooltip.visible && (
-        <div
-          className="fixed z-[999999] max-w-xs px-2 py-1 text-xs text-white bg-black rounded shadow-lg pointer-events-none"
-          style={{
-            top: tooltip.y - 10,
-            left: tooltip.x,
-            transform: "translate(-50%, -100%)",
-            whiteSpace: "normal",
-          }}
-        >
-          {tooltip.text}
-        </div>
-      )}
+      {/* GLOBAL TOOLTIP (fixed, above everything, fade in/out, right of label) */}
+      <div
+        className={`fixed z-[999999] max-w-xs px-2 py-1 text-xs text-white bg-black rounded shadow-lg pointer-events-none transition-opacity duration-150 ease-out ${
+          tooltip.visible ? "opacity-100" : "opacity-0"
+        }`}
+        style={{
+          top: tooltip.y,
+          left: tooltip.x,
+          transform: "translate(0, -50%)", // vertically center on anchor
+          whiteSpace: "normal",
+        }}
+      >
+        {tooltip.text}
+      </div>
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -484,9 +480,7 @@ export default function ComparisonRubricForm({
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div
                       className="font-medium text-[13px] cursor-help"
-                      onMouseEnter={(e) =>
-                        showTooltip(e, ax.description)
-                      }
+                      onMouseEnter={(e) => showTooltip(e, ax.description)}
                       onMouseLeave={hideTooltip}
                     >
                       {ax.label}
