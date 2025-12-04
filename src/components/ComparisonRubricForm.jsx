@@ -35,11 +35,10 @@ export default function ComparisonRubricForm({
   const [savedOnce, setSavedOnce] = useState(false);
   const [err, setErr] = useState("");
 
-  // Missing modal
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [missingList, setMissingList] = useState([]);
 
-  // 🔵 GLOBAL TOOLTIP STATE (for all axis labels)
+  // 🔵 GLOBAL TOOLTIP STATE
   const [tooltip, setTooltip] = useState({
     visible: false,
     text: "",
@@ -176,7 +175,7 @@ export default function ComparisonRubricForm({
   const isAbsoluteComplete = (ab) =>
     ab.t1 >= 1 && ab.t1 <= 5 && ab.t2 >= 1 && ab.t2 <= 5;
 
-  // Missing list
+  // Missing items computation
   const computeMissing = () => {
     const missing = [];
 
@@ -204,15 +203,33 @@ export default function ComparisonRubricForm({
     [axes, relativeOverall, absoluteOverall]
   );
 
-  // TOOLTIP HELPERS — GLOBAL, FIXED POSITIONED
+  // -----------------------------
+  // ⭐️ IMPROVED TOOLTIP HANDLERS
+  // -----------------------------
   const showTooltip = (event, text) => {
     if (!text) return;
+
     const rect = event.currentTarget.getBoundingClientRect();
+    const tooltipWidth = 240; // approximate width
+    const margin = 12;
+
+    let x = rect.left + rect.width / 2;
+
+    // Prevent overflow RIGHT
+    if (x + tooltipWidth / 2 > window.innerWidth - margin) {
+      x = window.innerWidth - tooltipWidth / 2 - margin;
+    }
+
+    // Prevent overflow LEFT
+    if (x - tooltipWidth / 2 < margin) {
+      x = tooltipWidth / 2 + margin;
+    }
+
     setTooltip({
       visible: true,
       text,
-      x: rect.left + rect.width / 2,
-      y: rect.top, // position above the label
+      x,
+      y: rect.top,
     });
   };
 
@@ -220,6 +237,9 @@ export default function ComparisonRubricForm({
     setTooltip((prev) => ({ ...prev, visible: false }));
   };
 
+  // -----------------------------
+  // Rendering
+  // -----------------------------
   const Likert = ({ idx, strength }) => {
     const labels = [
       "Very slightly better",
@@ -376,14 +396,15 @@ export default function ComparisonRubricForm({
         </div>
       )}
 
-      {/* GLOBAL TOOLTIP (fixed, above everything) */}
+      {/* 🔵 GLOBAL TOOLTIP (always on top, never clipped) */}
       {tooltip.visible && (
         <div
-          className="fixed z-[9999] max-w-xs px-2 py-1 text-xs text-white bg-black rounded shadow-lg pointer-events-none"
+          className="fixed z-[999999] max-w-xs px-2 py-1 text-xs text-white bg-black rounded shadow-lg pointer-events-none"
           style={{
-            top: tooltip.y - 8,
+            top: tooltip.y - 10,
             left: tooltip.x,
             transform: "translate(-50%, -100%)",
+            whiteSpace: "normal",
           }}
         >
           {tooltip.text}
