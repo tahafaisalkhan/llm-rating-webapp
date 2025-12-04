@@ -152,7 +152,6 @@ export default function ComparisonRubricForm({
   const isAbsoluteComplete = (ab) =>
     ab.t1 >= 1 && ab.t1 <= 5 && ab.t2 >= 1 && ab.t2 <= 5;
 
-  // Build missing checklist
   const computeMissing = () => {
     const missing = [];
 
@@ -327,43 +326,44 @@ export default function ComparisonRubricForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
 
-{/* Missing Modal (RED) */}
-{showMissingModal && (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div className="bg-red-600 text-white rounded-xl p-5 w-96 shadow-2xl border border-red-800">
-      <div className="font-semibold text-lg mb-2">Missing Fields</div>
+      {/* Missing Modal */}
+      {showMissingModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-red-600 text-white rounded-xl p-5 w-96 shadow-2xl border border-red-800">
+            <div className="font-semibold text-lg mb-2">Missing Fields</div>
 
-      {missingList.length === 0 ? (
-        <div className="text-sm">Everything is complete.</div>
-      ) : (
-        <ul className="list-disc ml-5 space-y-1 text-sm">
-          {missingList.map((m, i) => (
-            <li key={i}>{m}</li>
-          ))}
-        </ul>
+            {missingList.length === 0 ? (
+              <div className="text-sm">Everything is complete.</div>
+            ) : (
+              <ul className="list-disc ml-5 space-y-1 text-sm">
+                {missingList.map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-4 flex justify-start">
+              <button
+                className="px-4 py-1.5 bg-black text-white rounded hover:bg-gray-900"
+                onClick={() => setShowMissingModal(false)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="text-xs mt-2 text-red-200">
+              This message will close automatically in 10 seconds.
+            </div>
+          </div>
+        </div>
       )}
-
-      <div className="mt-4 flex justify-start">
-        <button
-          className="px-4 py-1.5 bg-black text-white rounded hover:bg-gray-900"
-          onClick={() => setShowMissingModal(false)}
-          type="button"
-        >
-          Close
-        </button>
-      </div>
-
-      <div className="text-xs mt-2 text-red-200">
-        This message will close automatically in 10 seconds.
-      </div>
-    </div>
-  </div>
-)}
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="font-semibold text-sm">
-          Rating Rubric – <span className="font-normal">(Translation 1 vs 2 or Tie)</span>
+          Rating Rubric –{" "}
+          <span className="font-normal">(Translation 1 vs 2 or Tie)</span>
         </div>
 
         <div className="inline-flex rounded-md border overflow-hidden text-xs">
@@ -372,7 +372,9 @@ export default function ComparisonRubricForm({
             onClick={() => setMode("relative")}
             className={[
               "px-3 py-1",
-              mode === "relative" ? "bg-black text-white" : "bg-white hover:bg-gray-100",
+              mode === "relative"
+                ? "bg-black text-white"
+                : "bg-white hover:bg-gray-100",
             ].join(" ")}
           >
             Relative Grading
@@ -422,13 +424,17 @@ export default function ComparisonRubricForm({
                     <div className="font-medium text-[13px]">{ax.label}</div>
 
                     <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-3 relative z-10">
+                      <div className="flex items-center gap-3">
                         <WinnerButtons idx={idx} winner={a.winner} />
-                        {needsStrength && <Likert idx={idx} strength={a.strength} />}
-                        {isTie && <TieQuality idx={idx} tieQuality={a.tieQuality} />}
+                        {needsStrength && (
+                          <Likert idx={idx} strength={a.strength} />
+                        )}
+                        {isTie && (
+                          <TieQuality idx={idx} tieQuality={a.tieQuality} />
+                        )}
                       </div>
 
-                      <div className="text-[11px] text-gray-500 pointer-events-none">
+                      <div className="text-[11px] text-gray-500">
                         {needsStrength
                           ? "How much better is the chosen translation?"
                           : isTie
@@ -525,44 +531,53 @@ export default function ComparisonRubricForm({
                 </div>
               </div>
             </div>
-            {/* ████████████████████████████████████████████████████ */}
-
+            {/* END BLUE BLOCK */}
           </>
         ) : (
-          // ABSOLUTE MODE
+          // ABSOLUTE MODE — UPDATED UI
           <div className="space-y-3">
             <div className="font-semibold text-[13px]">
               2. Absolute grading (overall quality)
             </div>
 
-            {/* T1 */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <div className="font-medium text-[13px]">Rate Translation 1 overall</div>
-                <div className="text-[11px] text-gray-500">1 = poor, 5 = excellent</div>
+            {/* PANEL FOR T1 */}
+            <div className="border rounded-lg px-3 py-2 bg-gray-50 border-gray-200">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="font-medium text-[13px]">
+                  Rate Translation 1 overall
+                </div>
+
+                <NumericLikert
+                  value={absoluteOverall.t1}
+                  onChange={(v) =>
+                    setAbsoluteOverall((prev) => ({ ...prev, t1: v }))
+                  }
+                />
               </div>
 
-              <NumericLikert
-                value={absoluteOverall.t1}
-                onChange={(v) =>
-                  setAbsoluteOverall((prev) => ({ ...prev, t1: v }))
-                }
-              />
+              <div className="text-[11px] text-gray-500 mt-1">
+                1 = poor, 5 = excellent
+              </div>
             </div>
 
-            {/* T2 */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <div className="font-medium text-[13px]">Rate Translation 2 overall</div>
-                <div className="text-[11px] text-gray-500">1 = poor, 5 = excellent</div>
+            {/* PANEL FOR T2 */}
+            <div className="border rounded-lg px-3 py-2 bg-gray-50 border-gray-200">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="font-medium text-[13px]">
+                  Rate Translation 2 overall
+                </div>
+
+                <NumericLikert
+                  value={absoluteOverall.t2}
+                  onChange={(v) =>
+                    setAbsoluteOverall((prev) => ({ ...prev, t2: v }))
+                  }
+                />
               </div>
 
-              <NumericLikert
-                value={absoluteOverall.t2}
-                onChange={(v) =>
-                  setAbsoluteOverall((prev) => ({ ...prev, t2: v }))
-                }
-              />
+              <div className="text-[11px] text-gray-500 mt-1">
+                1 = poor, 5 = excellent
+              </div>
             </div>
           </div>
         )}
