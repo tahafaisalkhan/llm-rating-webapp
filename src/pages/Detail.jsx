@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import { getRater } from "../utils/auth";
 import ComparisonRubricForm from "../components/ComparisonRubricForm";
 
+/* -------------------------------
+   HASH + SALT (DROP-IN UPDATE)
+--------------------------------*/
+const SALT = "u3J9sD82naLKf9203nFhsaf"; // any fixed string
+
 function hash32(str) {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
@@ -67,10 +72,16 @@ export default function Detail() {
 
   const datasetId =
     row.chatgpt?.datasetid || row.medgemma?.datasetid || "";
+
   const originalDialogue =
     row.chatgpt?.originalDialogue || row.medgemma?.originalDialogue || "";
 
-  const flip = (hash32(String(row.comparison)) & 1) === 1;
+  /* -------------------------------
+     FLIP USING SALTED HASH
+  --------------------------------*/
+  const saltedKey = SALT + String(row.comparison);
+  const flip = (hash32(saltedKey) & 1) === 1;
+
   const urdu1 = flip ? row.medgemma : row.chatgpt;
   const urdu2 = flip ? row.chatgpt : row.medgemma;
 
@@ -99,8 +110,8 @@ export default function Detail() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* 3 dialogue panels only */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
           {/* English Dialogue */}
           <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]">
             <div className="p-3 border-b">
@@ -112,48 +123,32 @@ export default function Detail() {
             </div>
           </div>
 
-          {/* Urdu 1 Dialogue */}
-          <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]"
-            dir="rtl"
-          >
+          {/* Urdu 1 */}
+          <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
             <div className="p-3 border-b" dir="ltr">
-              <div className="mt-1 font-semibold text-sm">
-                Urdu Dialogue 1
-              </div>
+              <div className="mt-1 font-semibold text-sm">Urdu Dialogue 1</div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              <pre
-                dir="rtl"
-                className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]"
-              >
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]">
                 {urdu1Dialogue}
               </pre>
             </div>
           </div>
 
-          {/* Urdu 2 Dialogue */}
-          <div
-            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]"
-            dir="rtl"
-          >
+          {/* Urdu 2 */}
+          <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
             <div className="p-3 border-b" dir="ltr">
-              <div className="mt-1 font-semibold text-sm">
-                Urdu Dialogue 2
-              </div>
+              <div className="mt-1 font-semibold text-sm">Urdu Dialogue 2</div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              <pre
-                dir="rtl"
-                className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]"
-              >
+              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]">
                 {urdu2Dialogue}
               </pre>
             </div>
           </div>
         </div>
 
-        {/* Rating panel */}
+        {/* Rating Form */}
         <div className="border rounded-2xl bg-white p-4 shadow-md">
           <ComparisonRubricForm
             rater={rater}
