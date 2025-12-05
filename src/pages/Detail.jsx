@@ -26,6 +26,7 @@ export default function Detail() {
   const { comparisonId } = useParams();
   const navigate = useNavigate();
   const rater = getRater() || "";
+  const isAdmin = rater === "admin";
 
   const [row, setRow] = useState(null);
   const [err, setErr] = useState("");
@@ -124,24 +125,50 @@ export default function Detail() {
           </div>
 
           {/* Urdu 1 */}
-          <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
+          <div
+            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]"
+            dir="rtl"
+          >
             <div className="p-3 border-b" dir="ltr">
-              <div className="mt-1 font-semibold text-sm">Urdu Dialogue 1</div>
+              <div className="mt-1 font-semibold text-sm">
+                Urdu Dialogue 1
+                {isAdmin && (
+                  <span className="ml-2 text-xs text-red-600 font-mono">
+                    ({urdu1Id})
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]">
+              <pre
+                dir="rtl"
+                className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]"
+              >
                 {urdu1Dialogue}
               </pre>
             </div>
           </div>
 
           {/* Urdu 2 */}
-          <div className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]" dir="rtl">
+          <div
+            className="border rounded-2xl bg-white flex flex-col overflow-hidden max-h-[25rem]"
+            dir="rtl"
+          >
             <div className="p-3 border-b" dir="ltr">
-              <div className="mt-1 font-semibold text-sm">Urdu Dialogue 2</div>
+              <div className="mt-1 font-semibold text-sm">
+                Urdu Dialogue 2
+                {isAdmin && (
+                  <span className="ml-2 text-xs text-red-600 font-mono">
+                    ({urdu2Id})
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2 text-base font-nastaliq leading-relaxed">
-              <pre dir="rtl" className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]">
+              <pre
+                dir="rtl"
+                className="whitespace-pre-wrap font-nastaliq leading-[2.1rem] tracking-[0.02em]"
+              >
                 {urdu2Dialogue}
               </pre>
             </div>
