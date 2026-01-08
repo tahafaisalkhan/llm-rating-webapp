@@ -5,7 +5,8 @@ const AxisSchema = new mongoose.Schema(
   {
     // 0 = tie, 1 = Urdu 1 better, 2 = Urdu 2 better
     winner: { type: Number, enum: [0, 1, 2], required: true },
-
+    // 1–5 Likert strength, null if tie
+    strength: { type: Number, min: 1, max: 5, default: null },
     // when winner = 0 (tie), optional quality: "bad" | "good" | "excellent"
     tieQuality: { type: String, default: null },
   },
@@ -19,6 +20,7 @@ const ComparisonRatingSchema = new mongoose.Schema(
     datasetId: { type: String, default: "" },
 
     // Which concrete outputs were shown as Urdu 1 / Urdu 2 in the UI
+    // e.g. "c_aci_001", "g_aci_001"
     urdu1: { type: String, default: "" },
     urdu2: { type: String, default: "" },
 
@@ -57,4 +59,7 @@ const ComparisonRatingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// one submission per (ra
+// one submission per (rater, comparison)
+ComparisonRatingSchema.index({ rater: 1, comparison: 1 }, { unique: true });
+
+module.exports = mongoose.model("ComparisonRating", ComparisonRatingSchema);
