@@ -38,6 +38,7 @@ export default function ComparisonRubricForm({
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [missingList, setMissingList] = useState([]);
 
+  // Global tooltip
   const [tooltip, setTooltip] = useState({
     visible: false,
     text: "",
@@ -67,6 +68,7 @@ export default function ComparisonRubricForm({
     []
   );
 
+  // Load saved ratings
   useEffect(() => {
     (async () => {
       try {
@@ -133,6 +135,45 @@ export default function ComparisonRubricForm({
   const isAbsolutePanelComplete = (v) => v >= 1 && v <= 5;
   const isAbsoluteComplete = (ab) => ab.t1 >= 1 && ab.t1 <= 5 && ab.t2 >= 1 && ab.t2 <= 5;
 
+  const computeMissing = () => {
+    const missing = [];
+    axes.forEach((a, i) => {
+      if (!isAxisComplete(a)) missing.push(`Axis ${i + 1} is incomplete`);
+    });
+    if (!isRelativeComplete(relativeOverall)) missing.push("Relative overall grade incomplete");
+    if (!isAbsolutePanelComplete(absoluteOverall.t1)) missing.push("Absolute Grading Tab: Rate Translation 1 (1–5)");
+    if (!isAbsolutePanelComplete(absoluteOverall.t2)) missing.push("Absolute Grading Tab: Rate Translation 2 (1–5)");
+    return missing;
+  };
+
+  const allComplete = useMemo(
+    () => axes.every(isAxisComplete) && isRelativeComplete(relativeOverall) && isAbsoluteComplete(absoluteOverall),
+    [axes, relativeOverall, absoluteOverall]
+  );
+
+  // Tooltip system (unchanged)
+  const showTooltip = (event, text) => {
+    if (!text) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const margin = 8;
+
+    let x = rect.right + margin;
+    let y = rect.top + rect.height / 2;
+
+    const maxX = window.innerWidth - margin;
+    const minX = margin;
+    const maxY = window.innerHeight - margin;
+    const minY = margin;
+
+    x = Math.min(Math.max(x, minX), maxX);
+    y = Math.min(Math.max(y, minY), maxY);
+
+    setTooltip({ visible: true, text, x, y });
+  };
+
+  const hideTooltip = () => setTooltip((t) => ({ ...t, visible: false }));
+
+  // Shared Likert scale component
   const LikertScale = ({ value, onChange }) => {
     const labels = [
       "Very slightly better",
@@ -174,9 +215,6 @@ export default function ComparisonRubricForm({
       <div className="text-[11px] text-gray-500 mt-1">1 = poor, 5 = excellent</div>
     </div>
   );
-
-  // ⬇️ AXES RENDER: Likert REMOVED HERE ⬇️
-  // (rest of file unchanged)
 
   const handleSubmit = async (e) => {
     e.preventDefault();
