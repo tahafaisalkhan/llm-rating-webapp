@@ -5,8 +5,13 @@ const AxisSchema = new mongoose.Schema(
   {
     // 0 = tie, 1 = Urdu 1 better, 2 = Urdu 2 better
     winner: { type: Number, enum: [0, 1, 2], required: true },
-    // 1–5 Likert strength, null if tie
+
+    // 1–5 Likert strength
+    // NOTE:
+    // - For axes 1–8 this may be null (ternary-only judgment)
+    // - For relativeOverall this is used when winner = 1 or 2
     strength: { type: Number, min: 1, max: 5, default: null },
+
     // when winner = 0 (tie), optional quality: "bad" | "good" | "excellent"
     tieQuality: { type: String, default: null },
   },
@@ -44,8 +49,10 @@ const ComparisonRatingSchema = new mongoose.Schema(
     relativeOverall: {
       // 0 tie, 1 T1, 2 T2
       winner: { type: Number, enum: [0, 1, 2], default: null },
-      // when winner is 1 or 2
+
+      // when winner is 1 or 2 (REQUIRED by UI / validation)
       strength: { type: Number, min: 1, max: 5, default: null },
+
       // when winner = 0
       tieQuality: { type: String, default: null },
     },
