@@ -45,10 +45,12 @@ app.post("/api/comparison-ratings", async (req, res) => {
     } = req.body || {};
 
     if (!rater || !comparison || !axes) {
-      return res.status(400).json({ error: "Missing rater, comparison, or axes." });
+      return res.status(400).json({
+        error: "Missing rater, comparison, or axes.",
+      });
     }
 
-    // Validate axes
+    // Validate axes 1–8 (TERNARY ONLY)
     const required = [
       "axis1",
       "axis2",
@@ -62,19 +64,22 @@ app.post("/api/comparison-ratings", async (req, res) => {
 
     for (const ax of required) {
       const a = axes[ax];
+
       if (!a || typeof a.winner !== "number") {
-        return res.status(400).json({ error: `Missing winner for ${ax}` });
+        return res.status(400).json({
+          error: `Missing winner for ${ax}`,
+        });
       }
+
       if (![0, 1, 2].includes(a.winner)) {
-        return res.status(400).json({ error: `${ax} winner must be 0/1/2` });
+        return res.status(400).json({
+          error: `${ax} winner must be 0/1/2`,
+        });
       }
-      if (a.winner !== 0) {
-        if (a.strength == null || a.strength < 1 || a.strength > 5) {
-          return res.status(400).json({
-            error: `${ax} strength must be 1–5 when winner is not Tie.`,
-          });
-        }
-      }
+
+      // NOTE:
+      // Axes 1–8 are ternary-only.
+      // strength is intentionally ignored / optional here.
     }
 
     let dur = null;
