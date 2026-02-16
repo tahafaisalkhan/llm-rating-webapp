@@ -9,5 +9,8 @@ export const CREDENTIALS = {
   drmehroosh: "mehroosh123",
   drkomal: "456DrK",
   drsara: "sara789",
-  admin: "admin"
+  admin: "admin",
+  taha: "taha",
+  muiz: "muiz",
+  ibra: "ibra"
 };
