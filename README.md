@@ -4,7 +4,7 @@ A web app for blinded human evaluation of clinical English-to-Urdu translation o
 
 The current project is a Vite + React frontend with an Express + MongoDB backend. Static case data is generated from Excel files into JSON and served from `public/data`.
 
-## Screenshots
+## Screenshots (Original App Design (Optimized Later)) 
 
 ### Login
 
